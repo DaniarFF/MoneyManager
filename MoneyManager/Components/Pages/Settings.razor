@@ -1,5 +1,5 @@
 @page "/settings"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @inject IBudgetService BudgetService
 @inject UserSessionService Session
 @inject NavigationManager Nav

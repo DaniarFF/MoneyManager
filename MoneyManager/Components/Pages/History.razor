@@ -1,5 +1,5 @@
 @page "/history"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @inject IExpenseService ExpenseService
 @inject IBudgetService BudgetService
 @inject UserSessionService Session

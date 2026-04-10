@@ -1,5 +1,5 @@
 @page "/"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @inject IBudgetService BudgetService
 @inject IExpenseService ExpenseService
 @inject UserSessionService Session

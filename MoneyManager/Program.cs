@@ -41,6 +41,9 @@ if (app.Environment.IsDevelopment()) app.UseHttpsRedirection();
 app.UseSession();
 app.UseAntiforgery();
 
+// Healthcheck endpoint — отвечает сразу, до старта Blazor
+app.MapGet("/health", () => Results.Ok("healthy"));
+
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

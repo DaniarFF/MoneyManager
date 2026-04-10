@@ -173,12 +173,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (!Session.IsAuthenticated)
-        {
-            Nav.NavigateTo("/login", replace: true);
-            return;
-        }
-
         _dateLabel = DateTime.Now.ToString("d MMMM yyyy", new System.Globalization.CultureInfo("ru-RU"));
         await LoadDataAsync();
     }
@@ -188,17 +182,17 @@
         _loading = true;
         try
         {
-            _state = await BudgetService.GetDailyStateAsync(Session.UserId!.Value);
+            _state = await BudgetService.GetDailyStateAsync(Session.UserId);
             if (_state is not null)
             {
-                _recentDays = await BudgetService.GetRecentDaysStatsAsync(Session.UserId!.Value);
+                _recentDays = await BudgetService.GetRecentDaysStatsAsync(Session.UserId);
 
-                var plan = await BudgetService.GetCurrentPlanAsync(Session.UserId!.Value);
+                var plan = await BudgetService.GetCurrentPlanAsync(Session.UserId);
                 if (plan is not null)
                 {
                     _budgetPlanId = plan.Id;
                     _todayExpenses = await ExpenseService.GetExpensesByDateAsync(
-                        Session.UserId!.Value, DateOnly.FromDateTime(DateTime.Now));
+                        Session.UserId, DateOnly.FromDateTime(DateTime.Now));
                 }
             }
         }

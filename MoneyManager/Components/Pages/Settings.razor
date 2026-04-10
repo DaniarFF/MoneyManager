@@ -43,20 +43,6 @@
         }
     </div>
 
-    <!-- Account Section -->
-    <p class="section-title" style="font-size:13px; color:#8e8e93; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; padding:4px 20px 8px">
-        Аккаунт
-    </p>
-    <div class="settings-group">
-        <div class="settings-item">
-            <span class="si-label">Имя</span>
-            <span class="si-value">@Session.DisplayName</span>
-        </div>
-        <div class="settings-item" @onclick="Logout">
-            <span class="si-label si-danger">Выйти</span>
-        </div>
-    </div>
-
     <!-- Future features placeholder -->
     <p class="section-title" style="font-size:13px; color:#8e8e93; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; padding:4px 20px 8px">
         В разработке
@@ -135,14 +121,13 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (!Session.IsAuthenticated) { Nav.NavigateTo("/login", replace: true); return; }
         _monthLabel = DateTime.Now.ToString("MMMM yyyy", new System.Globalization.CultureInfo("ru-RU"));
         await LoadAsync();
     }
 
     async Task LoadAsync()
     {
-        _plan = await BudgetService.GetCurrentPlanAsync(Session.UserId!.Value);
+        _plan = await BudgetService.GetCurrentPlanAsync(Session.UserId);
         _newAmount = _plan?.MonthlyAmount ?? 0;
     }
 
@@ -154,17 +139,11 @@
         {
             var now = DateTime.Now;
             _plan = await BudgetService.CreateOrUpdatePlanAsync(
-                new CreateBudgetPlanCommand(Session.UserId!.Value, now.Month, now.Year, _newAmount));
+                new CreateBudgetPlanCommand(Session.UserId, now.Month, now.Year, _newAmount));
             _editBudget = false;
         }
         catch (Exception ex) { _saveError = ex.Message; }
         finally { _saving = false; }
-    }
-
-    void Logout()
-    {
-        Session.Clear();
-        Nav.NavigateTo("/login", replace: true);
     }
 
     static string FormatMoney(decimal v) =>

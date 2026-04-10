@@ -125,7 +125,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (!Session.IsAuthenticated) { Nav.NavigateTo("/login", replace: true); return; }
         _monthLabel = DateTime.Now.ToString("MMMM yyyy", new System.Globalization.CultureInfo("ru-RU"));
         await LoadAsync();
     }
@@ -135,10 +134,10 @@
         _loading = true;
         try
         {
-            var plan = await BudgetService.GetCurrentPlanAsync(Session.UserId!.Value);
+            var plan = await BudgetService.GetCurrentPlanAsync(Session.UserId);
             if (plan is not null) _budgetPlanId = plan.Id;
 
-            var expenses = await ExpenseService.GetExpensesForCurrentMonthAsync(Session.UserId!.Value);
+            var expenses = await ExpenseService.GetExpensesForCurrentMonthAsync(Session.UserId);
             _grouped = expenses
                 .GroupBy(e => DateOnly.FromDateTime(e.ExpenseDate))
                 .OrderByDescending(g => g.Key)

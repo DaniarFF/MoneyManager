@@ -3,13 +3,11 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using MoneyManager.Application;
 using MoneyManager.Components;
 using MoneyManager.Infrastructure;
+using MoneyManager.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Railway передаёт порт через PORT
 var port = int.Parse(Environment.GetEnvironmentVariable("PORT") ?? "8080");
-
-// HTTP/1.1 обязателен для WebSocket (Blazor SignalR), HTTP/2 — для производительности
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.ListenAnyIP(port, listenOptions =>
@@ -18,7 +16,6 @@ builder.WebHost.ConfigureKestrel(options =>
     });
 });
 
-// Доверяем заголовкам от Railway-прокси
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -36,19 +33,8 @@ builder.Services.AddSignalR(options =>
     options.KeepAliveInterval = TimeSpan.FromSeconds(15);
 });
 
-// Clean Architecture layers
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-
-builder.Services.AddDistributedMemoryCache();
-builder.Services.AddSession(options =>
-{
-    options.IdleTimeout = TimeSpan.FromDays(30);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
-    options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
-});
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<MoneyManager.Services.UserSessionService>();
@@ -56,11 +42,7 @@ builder.Services.AddScoped<MoneyManager.Services.UserSessionService>();
 var app = builder.Build();
 
 app.UseForwardedHeaders();
-
-app.UseWebSockets(new WebSocketOptions
-{
-    KeepAliveInterval = TimeSpan.FromSeconds(15)
-});
+app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(15) });
 
 if (!app.Environment.IsDevelopment())
 {
@@ -70,7 +52,6 @@ if (!app.Environment.IsDevelopment())
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 if (app.Environment.IsDevelopment()) app.UseHttpsRedirection();
-app.UseSession();
 app.UseAntiforgery();
 
 app.MapGet("/health", () => Results.Ok("healthy"));
@@ -80,5 +61,6 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 await app.Services.MigrateAsync();
+await DbSeeder.SeedAsync(app.Services);
 
 app.Run();

@@ -26,7 +26,10 @@
       "Bash(cmd.exe /c \"netstat -ano | findstr :7168\")",
       "Bash(cmd.exe /c \"tasklist | findstr dotnet\")",
       "Bash(cmd.exe /c \"netstat -ano | findstr LISTENING | findstr 504\")",
-      "Bash(cmd.exe /c \"netstat -ano | findstr LISTENING\")"
+      "Bash(cmd.exe /c \"netstat -ano | findstr LISTENING\")",
+      "WebFetch(domain:moneymanager-production-9164.up.railway.app)",
+      "Bash(cmd.exe /c \"taskkill /F /PID 17396\")",
+      "Bash(cmd.exe /c \"wmic process where name='MoneyManager.exe' get ProcessId,Name 2>nul\")"
     ]
   }
 }

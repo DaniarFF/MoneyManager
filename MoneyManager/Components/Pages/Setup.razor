@@ -64,7 +64,7 @@
         {
             var now = DateTime.Now;
             await BudgetService.CreateOrUpdatePlanAsync(new CreateBudgetPlanCommand(
-                Session.UserId!.Value, now.Month, now.Year, _amount));
+                Session.UserId, now.Month, now.Year, _amount));
             Nav.NavigateTo("/", replace: true);
         }
         catch (Exception ex)

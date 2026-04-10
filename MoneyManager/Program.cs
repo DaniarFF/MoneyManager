@@ -9,7 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
-// Доверяем заголовкам от Railway-прокси (нужно для WebSocket / SignalR)
+// Доверяем заголовкам от Railway-прокси
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -20,17 +20,26 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Явно настраиваем SignalR для работы через прокси
+builder.Services.AddSignalR(options =>
+{
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
+    options.HandshakeTimeout = TimeSpan.FromSeconds(30);
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+});
+
 // Clean Architecture layers
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// Session для хранения авторизации в серверном Blazor
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromDays(30);
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 });
 
 builder.Services.AddHttpContextAccessor();
@@ -38,8 +47,14 @@ builder.Services.AddScoped<MoneyManager.Services.UserSessionService>();
 
 var app = builder.Build();
 
-// Должен быть ПЕРВЫМ — до всего остального
+// ForwardedHeaders — первым
 app.UseForwardedHeaders();
+
+// Явно включаем WebSocket поддержку
+app.UseWebSockets(new WebSocketOptions
+{
+    KeepAliveInterval = TimeSpan.FromSeconds(15)
+});
 
 if (!app.Environment.IsDevelopment())
 {
@@ -52,14 +67,12 @@ if (app.Environment.IsDevelopment()) app.UseHttpsRedirection();
 app.UseSession();
 app.UseAntiforgery();
 
-// Healthcheck endpoint
 app.MapGet("/health", () => Results.Ok("healthy"));
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-// Применяем миграции при старте
 await app.Services.MigrateAsync();
 
 app.Run();

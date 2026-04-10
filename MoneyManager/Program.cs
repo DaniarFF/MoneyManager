@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using MoneyManager.Application;
 using MoneyManager.Components;
 using MoneyManager.Infrastructure;
@@ -7,6 +8,14 @@ var builder = WebApplication.CreateBuilder(args);
 // Railway / Render передают порт через переменную PORT
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
+// Доверяем заголовкам от Railway-прокси (нужно для WebSocket / SignalR)
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -29,6 +38,9 @@ builder.Services.AddScoped<MoneyManager.Services.UserSessionService>();
 
 var app = builder.Build();
 
+// Должен быть ПЕРВЫМ — до всего остального
+app.UseForwardedHeaders();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -36,12 +48,11 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-// HTTPS редирект отключён в production-контейнере (терминируется на proxy Railway/Render)
 if (app.Environment.IsDevelopment()) app.UseHttpsRedirection();
 app.UseSession();
 app.UseAntiforgery();
 
-// Healthcheck endpoint — отвечает сразу, до старта Blazor
+// Healthcheck endpoint
 app.MapGet("/health", () => Results.Ok("healthy"));
 
 app.MapStaticAssets();

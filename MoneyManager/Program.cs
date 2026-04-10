@@ -1,13 +1,22 @@
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using MoneyManager.Application;
 using MoneyManager.Components;
 using MoneyManager.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Railway / Render передают порт через переменную PORT
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+// Railway передаёт порт через PORT
+var port = int.Parse(Environment.GetEnvironmentVariable("PORT") ?? "8080");
+
+// HTTP/1.1 обязателен для WebSocket (Blazor SignalR), HTTP/2 — для производительности
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(port, listenOptions =>
+    {
+        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
+    });
+});
 
 // Доверяем заголовкам от Railway-прокси
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -20,7 +29,6 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Явно настраиваем SignalR для работы через прокси
 builder.Services.AddSignalR(options =>
 {
     options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
@@ -47,10 +55,8 @@ builder.Services.AddScoped<MoneyManager.Services.UserSessionService>();
 
 var app = builder.Build();
 
-// ForwardedHeaders — первым
 app.UseForwardedHeaders();
 
-// Явно включаем WebSocket поддержку
 app.UseWebSockets(new WebSocketOptions
 {
     KeepAliveInterval = TimeSpan.FromSeconds(15)

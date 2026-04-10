@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet new:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet tool:*)",
+      "Bash(dotnet ef:*)",
+      "Bash(grep -v \"^$\")",
+      "Bash(dotnet run:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5000/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://localhost:5001/)",
+      "Bash(PGPASSWORD=\"\" psql -U postgres -h localhost -p 5432 -c \"SELECT version\\(\\);\")",
+      "Read(//c/Program Files/PostgreSQL/**)",
+      "Read(//c/Program Files/PostgreSQL//**)",
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -h localhost -p 5432 -c \"SELECT 1;\")",
+      "Bash(PGPASSWORD=\"daniar007\" \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -h localhost -p 5432 -c \"SELECT version\\(\\);\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(PGPASSWORD=\"daniar007\" \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -h localhost -p 5432 -c \"CREATE DATABASE moneymanager;\")",
+      "Bash(PGPASSWORD=\"daniar007\" \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -h localhost -p 5432 -d moneymanager -c \"\\\\dt\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5049/)",
+      "Bash(taskkill /F /IM dotnet.exe)",
+      "Bash(cmd.exe /c \"taskkill /F /IM dotnet.exe\")",
+      "Bash(cmd.exe /c \"netstat -ano | findstr :5049\")",
+      "Bash(cmd.exe /c \"netstat -ano | findstr :7168\")",
+      "Bash(cmd.exe /c \"tasklist | findstr dotnet\")",
+      "Bash(cmd.exe /c \"netstat -ano | findstr LISTENING | findstr 504\")",
+      "Bash(cmd.exe /c \"netstat -ano | findstr LISTENING\")"
+    ]
+  }
+}

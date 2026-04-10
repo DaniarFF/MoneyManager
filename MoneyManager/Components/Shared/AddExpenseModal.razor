@@ -1,0 +1,160 @@
+@using MoneyManager.Application.Commands
+@using MoneyManager.Application.DTOs
+@using MoneyManager.Application.Services
+@inject IExpenseService ExpenseService
+
+<div class="modal-overlay" @onclick="OnClose">
+    <div class="modal-sheet" @onclick:stopPropagation>
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+            <span class="sheet-title">@(EditExpense is null ? "Новый расход" : "Изменить расход")</span>
+            <button class="sheet-close" @onclick="OnClose">✕</button>
+        </div>
+
+        <!-- Amount -->
+        <div class="form-group">
+            <div class="form-row">
+                <label class="form-label">Сумма</label>
+                <div style="display:flex; align-items:baseline; gap:6px">
+                    <input class="form-input amount-input"
+                           type="number"
+                           inputmode="decimal"
+                           placeholder="0"
+                           @bind="_amount"
+                           min="0.01"
+                           step="0.01"
+                           autofocus/>
+                    <span style="font-size:24px; color:#c7c7cc; font-weight:700">₽</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category -->
+        <p style="font-size:12px; color:#8e8e93; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; padding:4px 20px 0; margin:0">
+            Категория
+        </p>
+        <div class="category-grid">
+            @foreach (var cat in _categories)
+            {
+                <div class="cat-chip @(_category == cat.Name ? "selected" : "")"
+                     @onclick="() => _category = cat.Name">
+                    <span class="cat-icon">@cat.Icon</span>
+                    <span class="cat-name">@cat.Name</span>
+                </div>
+            }
+        </div>
+
+        <!-- Note -->
+        <div class="form-group">
+            <div class="form-row">
+                <label class="form-label">Комментарий (необязательно)</label>
+                <input class="form-input"
+                       type="text"
+                       placeholder="Например: обед с коллегами"
+                       @bind="_note"
+                       maxlength="200"/>
+            </div>
+            <div class="form-row">
+                <label class="form-label">Дата и время</label>
+                <input class="form-input"
+                       type="datetime-local"
+                       @bind="_expenseDate"/>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <p class="error-msg">@_error</p>
+        }
+
+        <div style="padding:4px 16px calc(16px + env(safe-area-inset-bottom, 0px)); display:flex; flex-direction:column; gap:10px">
+            <button class="login-btn" @onclick="Save" disabled="@(_saving || _amount <= 0)">
+                @(_saving ? "Сохраняем..." : (EditExpense is null ? "Добавить" : "Сохранить"))
+            </button>
+
+            @if (EditExpense is not null)
+            {
+                <button class="login-btn" style="background:#ff453a; color:#fff" @onclick="Delete" disabled="@_saving">
+                    Удалить расход
+                </button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Guid BudgetPlanId { get; set; }
+    [Parameter] public ExpenseDto? EditExpense { get; set; }
+    [Parameter, EditorRequired] public EventCallback OnSaved { get; set; }
+    [Parameter, EditorRequired] public EventCallback OnClose { get; set; }
+
+    decimal _amount;
+    string _category = "Еда";
+    string _note = "";
+    DateTime _expenseDate = DateTime.Now;
+    string? _error;
+    bool _saving;
+
+    static readonly (string Name, string Icon)[] _categories =
+    [
+        ("Еда", "🍔"), ("Кафе", "☕"), ("Транспорт", "🚌"), ("Покупки", "🛍️"),
+        ("Развлечения", "🎬"), ("Здоровье", "💊"), ("ЖКХ", "🏠"), ("Связь", "📱"),
+        ("Другое", "💸")
+    ];
+
+    protected override void OnParametersSet()
+    {
+        if (EditExpense is not null)
+        {
+            _amount = EditExpense.Amount;
+            _category = EditExpense.Category;
+            _note = EditExpense.Note ?? "";
+            _expenseDate = EditExpense.ExpenseDate;
+        }
+        else
+        {
+            _amount = 0;
+            _category = "Еда";
+            _note = "";
+            _expenseDate = DateTime.Now;
+        }
+    }
+
+    async Task Save()
+    {
+        _error = null;
+        if (_amount <= 0) { _error = "Введите сумму."; return; }
+        if (string.IsNullOrWhiteSpace(_category)) { _error = "Выберите категорию."; return; }
+
+        _saving = true;
+        try
+        {
+            if (EditExpense is null)
+            {
+                await ExpenseService.AddExpenseAsync(new AddExpenseCommand(
+                    BudgetPlanId, _amount, _category, _note.Trim() == "" ? null : _note.Trim(), _expenseDate));
+            }
+            else
+            {
+                await ExpenseService.UpdateExpenseAsync(new UpdateExpenseCommand(
+                    EditExpense.Id, _amount, _category, _note.Trim() == "" ? null : _note.Trim(), _expenseDate));
+            }
+            await OnSaved.InvokeAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    async Task Delete()
+    {
+        if (EditExpense is null) return;
+        _saving = true;
+        try
+        {
+            await ExpenseService.DeleteExpenseAsync(EditExpense.Id);
+            await OnSaved.InvokeAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+}

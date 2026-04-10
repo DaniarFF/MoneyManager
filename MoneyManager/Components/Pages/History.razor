@@ -1,0 +1,194 @@
+@page "/history"
+@rendermode InteractiveServer
+@inject IExpenseService ExpenseService
+@inject IBudgetService BudgetService
+@inject UserSessionService Session
+@inject NavigationManager Nav
+
+<PageTitle>История</PageTitle>
+
+<div class="screen safe-top">
+    <div class="page-header">
+        <h1 class="page-title">История</h1>
+        <p class="page-subtitle">@_monthLabel</p>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="empty-state">
+            <div class="es-icon">⏳</div>
+            <p class="es-text">Загрузка...</p>
+        </div>
+    }
+    else if (_grouped.Count == 0)
+    {
+        <div class="empty-state">
+            <div class="es-icon">📭</div>
+            <p class="es-text">Расходов пока нет</p>
+        </div>
+    }
+    else
+    {
+        @foreach (var (date, items) in _grouped)
+        {
+            <p class="expense-group-header">@FormatGroupDate(date)</p>
+            <div class="expense-card">
+                @foreach (var e in items)
+                {
+                    <div class="expense-item">
+                        <div class="ei-icon" style="background:@GetCategoryColor(e.Category)">
+                            @GetCategoryIcon(e.Category)
+                        </div>
+                        <div class="ei-body">
+                            <div class="ei-category">@e.Category</div>
+                            @if (!string.IsNullOrEmpty(e.Note))
+                            {
+                                <div class="ei-note">@e.Note</div>
+                            }
+                            <div class="ei-note" style="font-size:11px; color:#c7c7cc">
+                                @e.ExpenseDate.ToString("HH:mm")
+                            </div>
+                        </div>
+                        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px">
+                            <div class="ei-amount">−@FormatMoney(e.Amount)</div>
+                            <div style="display:flex; gap:8px">
+                                <button style="font-size:13px; color:#007AFF; background:none; border:none; cursor:pointer; padding:0"
+                                        @onclick="() => OpenEdit(e)">Изм.</button>
+                                <button style="font-size:13px; color:#ff453a; background:none; border:none; cursor:pointer; padding:0"
+                                        @onclick="() => ConfirmDelete(e)">Удал.</button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    <BottomNav Active="history"/>
+</div>
+
+<div class="fab-container">
+    <button class="fab" @onclick="OpenAdd">
+        <span style="font-size:22px; line-height:1">＋</span> Добавить расход
+    </button>
+</div>
+
+@if (_showModal)
+{
+    <AddExpenseModal
+        BudgetPlanId="@_budgetPlanId"
+        EditExpense="@_editExpense"
+        OnSaved="@OnExpenseSaved"
+        OnClose="@(() => { _showModal = false; _editExpense = null; })" />
+}
+
+@if (_deleteTarget is not null)
+{
+    <div class="modal-overlay" @onclick="() => _deleteTarget = null">
+        <div class="modal-sheet" @onclick:stopPropagation>
+            <div class="sheet-handle"></div>
+            <div class="sheet-header">
+                <span class="sheet-title">Удалить расход?</span>
+                <button class="sheet-close" @onclick="() => _deleteTarget = null">✕</button>
+            </div>
+            <div style="padding:8px 20px 20px">
+                <p style="color:#1c1c1e; font-size:16px; margin:0 0 4px">
+                    @_deleteTarget.Category — @FormatMoney(_deleteTarget.Amount)
+                </p>
+                @if (!string.IsNullOrEmpty(_deleteTarget.Note))
+                {
+                    <p style="color:#8e8e93; font-size:14px; margin:0 0 20px">@_deleteTarget.Note</p>
+                }
+                <button style="width:100%; height:50px; background:#ff453a; color:#fff; border:none;
+                               border-radius:14px; font-size:16px; font-weight:600; cursor:pointer; margin-bottom:10px"
+                        @onclick="DoDelete">
+                    Удалить
+                </button>
+                <button style="width:100%; height:50px; background:#e5e5ea; color:#1c1c1e; border:none;
+                               border-radius:14px; font-size:16px; cursor:pointer"
+                        @onclick="() => _deleteTarget = null">
+                    Отмена
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    List<(DateOnly Date, List<ExpenseDto> Items)> _grouped = [];
+    bool _loading = true;
+    bool _showModal;
+    ExpenseDto? _editExpense;
+    ExpenseDto? _deleteTarget;
+    Guid _budgetPlanId;
+    string _monthLabel = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Session.IsAuthenticated) { Nav.NavigateTo("/login", replace: true); return; }
+        _monthLabel = DateTime.Now.ToString("MMMM yyyy", new System.Globalization.CultureInfo("ru-RU"));
+        await LoadAsync();
+    }
+
+    async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            var plan = await BudgetService.GetCurrentPlanAsync(Session.UserId!.Value);
+            if (plan is not null) _budgetPlanId = plan.Id;
+
+            var expenses = await ExpenseService.GetExpensesForCurrentMonthAsync(Session.UserId!.Value);
+            _grouped = expenses
+                .GroupBy(e => DateOnly.FromDateTime(e.ExpenseDate))
+                .OrderByDescending(g => g.Key)
+                .Select(g => (g.Key, g.OrderByDescending(e => e.ExpenseDate).ToList()))
+                .ToList();
+        }
+        finally { _loading = false; }
+    }
+
+    void OpenAdd() { _editExpense = null; _showModal = true; }
+    void OpenEdit(ExpenseDto e) { _editExpense = e; _showModal = true; }
+    void ConfirmDelete(ExpenseDto e) => _deleteTarget = e;
+
+    async Task DoDelete()
+    {
+        if (_deleteTarget is null) return;
+        await ExpenseService.DeleteExpenseAsync(_deleteTarget.Id);
+        _deleteTarget = null;
+        await LoadAsync();
+    }
+
+    async Task OnExpenseSaved()
+    {
+        _showModal = false;
+        _editExpense = null;
+        await LoadAsync();
+    }
+
+    string FormatGroupDate(DateOnly d)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        if (d == today) return "Сегодня";
+        if (d == today.AddDays(-1)) return "Вчера";
+        return d.ToString("d MMMM", new System.Globalization.CultureInfo("ru-RU"));
+    }
+
+    static string FormatMoney(decimal v) =>
+        v.ToString("N0", new System.Globalization.CultureInfo("ru-RU")) + " ₽";
+
+    static string GetCategoryIcon(string cat) => cat switch
+    {
+        "Еда" => "🍔", "Транспорт" => "🚌", "Покупки" => "🛍️",
+        "Развлечения" => "🎬", "Здоровье" => "💊", "Кафе" => "☕",
+        "ЖКХ" => "🏠", "Связь" => "📱", _ => "💸"
+    };
+
+    static string GetCategoryColor(string cat) => cat switch
+    {
+        "Еда" => "#fff3cd", "Транспорт" => "#d1e8ff", "Покупки" => "#fce4ec",
+        "Развлечения" => "#e8f5e9", "Здоровье" => "#fce8e8", "Кафе" => "#fdf3e7",
+        "ЖКХ" => "#e8eaf6", "Связь" => "#f3e5f5", _ => "#f2f2f7"
+    };
+}

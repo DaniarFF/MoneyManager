@@ -1,0 +1,20 @@
+@inject NavigationManager Nav
+
+<nav class="bottom-nav">
+    <a class="nav-item @(Active == "home" ? "active" : "")" href="/">
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label">Главная</span>
+    </a>
+    <a class="nav-item @(Active == "history" ? "active" : "")" href="/history">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">История</span>
+    </a>
+    <a class="nav-item @(Active == "settings" ? "active" : "")" href="/settings">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-label">Настройки</span>
+    </a>
+</nav>
+
+@code {
+    [Parameter] public string Active { get; set; } = "home";
+}

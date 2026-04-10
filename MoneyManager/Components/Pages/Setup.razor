@@ -1,0 +1,76 @@
+@page "/setup"
+@rendermode InteractiveServer
+@layout EmptyLayout
+@inject IBudgetService BudgetService
+@inject UserSessionService Session
+@inject NavigationManager Nav
+
+<PageTitle>Настройка бюджета</PageTitle>
+
+<div class="mobile-shell">
+    <div class="login-screen">
+        <div class="login-logo">📊</div>
+        <h1 class="login-title" style="font-size:26px">Настройте бюджет</h1>
+        <p class="login-subtitle">Введите сумму, которую хотите потратить в этом месяце</p>
+
+        <div class="form-group">
+            <div class="form-row">
+                <label class="form-label">Месячный бюджет (₽)</label>
+                <input class="form-input amount-input"
+                       type="number"
+                       inputmode="decimal"
+                       placeholder="40 000"
+                       @bind="_amount"
+                       min="1"/>
+            </div>
+        </div>
+
+        <div style="padding: 0 0 8px; text-align:center; color:#8e8e93; font-size:13px">
+            @if (_amount > 0)
+            {
+                var days = DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month);
+                var daily = _amount / days;
+                <span>≈ <b>@daily.ToString("N0") ₽</b> в день (@days дней в месяце)</span>
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <p class="error-msg">@_error</p>
+        }
+
+        <button class="login-btn" @onclick="Save" disabled="@(_loading || _amount <= 0)">
+            @(_loading ? "Сохраняем..." : "Начать")
+        </button>
+    </div>
+</div>
+
+@code {
+    decimal _amount;
+    string? _error;
+    bool _loading;
+
+    protected override void OnInitialized()
+    {
+        if (!Session.IsAuthenticated)
+            Nav.NavigateTo("/login", replace: true);
+    }
+
+    async Task Save()
+    {
+        _error = null;
+        _loading = true;
+        try
+        {
+            var now = DateTime.Now;
+            await BudgetService.CreateOrUpdatePlanAsync(new CreateBudgetPlanCommand(
+                Session.UserId!.Value, now.Month, now.Year, _amount));
+            Nav.NavigateTo("/", replace: true);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally { _loading = false; }
+    }
+}

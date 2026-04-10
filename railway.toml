@@ -1,0 +1,8 @@
+[build]
+dockerfilePath = "MoneyManager/Dockerfile"
+buildCommand = ""
+
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 60
+restartPolicyType = "on_failure"

@@ -1,0 +1,247 @@
+@page "/"
+@rendermode InteractiveServer
+@inject IBudgetService BudgetService
+@inject IExpenseService ExpenseService
+@inject UserSessionService Session
+@inject NavigationManager Nav
+
+<PageTitle>Бюджет сегодня</PageTitle>
+
+<div class="screen safe-top">
+
+    <!-- Header -->
+    <div class="page-header">
+        <div style="display:flex; justify-content:space-between; align-items:center">
+            <div>
+                <p class="page-subtitle">@_dateLabel</p>
+                <h1 class="page-title">Привет, @(Session.DisplayName?.Split(' ')[0]) 👋</h1>
+            </div>
+            <a href="/settings" style="font-size:26px; text-decoration:none; line-height:1">⚙️</a>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="empty-state">
+            <div class="es-icon">⏳</div>
+            <p class="es-text">Загружаем бюджет...</p>
+        </div>
+    }
+    else if (_state is null)
+    {
+        <div class="budget-hero" style="background: linear-gradient(145deg,#636366,#3a3a3c)">
+            <p class="label">Бюджет на месяц</p>
+            <p class="amount" style="font-size:32px">Не настроен</p>
+            <p class="amount-sub">Задайте бюджет, чтобы начать отслеживать расходы</p>
+        </div>
+        <div style="margin: 8px 16px 0">
+            <button class="fab" @onclick='() => Nav.NavigateTo("/settings")'>
+                + Задать бюджет
+            </button>
+        </div>
+    }
+    else
+    {
+        var pct = _state.TodayLimit > 0
+            ? Math.Min(100.0, (double)(_state.TodaySpent / _state.TodayLimit) * 100)
+            : 0.0;
+        var isOver = _state.TodaySpent > _state.TodayLimit;
+
+        <!-- Hero Card -->
+        <div class="budget-hero">
+            <p class="label">Доступно сегодня</p>
+            <p class="amount">@FormatMoney(Math.Max(0, _state.TodayRemaining))</p>
+            <p class="amount-sub">из @FormatMoney(_state.TodayLimit) лимита на день</p>
+
+            <div class="progress-wrap" style="margin-top:16px">
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill @(isOver ? "overspent" : "")"
+                         style="width:@pct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%">
+                    </div>
+                </div>
+                <div class="progress-labels">
+                    <span>Потрачено @FormatMoney(_state.TodaySpent)</span>
+                    <span>@pct.ToString("F0")%</span>
+                </div>
+            </div>
+
+            <div class="meta-row">
+                <div class="meta-item">
+                    <div class="mi-label">Бюджет</div>
+                    <div class="mi-value">@FormatMoneyShort(_state.MonthlyBudget)</div>
+                </div>
+                <div class="meta-item">
+                    <div class="mi-label">Остаток</div>
+                    <div class="mi-value">@FormatMoneyShort(_state.RemainingMonthly)</div>
+                </div>
+                <div class="meta-item">
+                    <div class="mi-label">Дней</div>
+                    <div class="mi-value">@_state.DaysRemainingInMonth</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tomorrow Forecast -->
+        <div class="tomorrow-card">
+            <p class="tc-label">Прогноз на завтра</p>
+            <p class="tc-amount">@FormatMoney(_state.TomorrowLimit)</p>
+            <p class="tc-reason @(isOver ? "negative" : "positive")">@_state.TomorrowChangeReason</p>
+        </div>
+
+        <!-- Recent Days Strip -->
+        @if (_recentDays.Count > 0)
+        {
+            <p class="section-title">Последние @_recentDays.Count дней</p>
+            <div class="daily-strip">
+                <div class="daily-strip-inner">
+                    @foreach (var day in _recentDays)
+                    {
+                        var isToday = day.Date == _state.Today;
+                        <div class="day-chip @(isToday ? "today" : "")">
+                            <div class="dc-day">@GetDayName(day.Date)</div>
+                            <div class="dc-amount">@FormatMoneyShort(day.Spent)</div>
+                            <div class="dc-dot @(day.IsOverspent ? "over" : "")"></div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Today's Expenses Preview -->
+        @if (_todayExpenses.Count > 0)
+        {
+            <p class="section-title">Сегодня</p>
+            <div class="expense-card">
+                @foreach (var e in _todayExpenses.Take(5))
+                {
+                    <div class="expense-item" @onclick="() => OpenEdit(e)">
+                        <div class="ei-icon" style="background:@GetCategoryColor(e.Category)">
+                            @GetCategoryIcon(e.Category)
+                        </div>
+                        <div class="ei-body">
+                            <div class="ei-category">@e.Category</div>
+                            @if (!string.IsNullOrEmpty(e.Note))
+                            {
+                                <div class="ei-note">@e.Note</div>
+                            }
+                        </div>
+                        <div class="ei-amount">−@FormatMoney(e.Amount)</div>
+                    </div>
+                }
+                @if (_todayExpenses.Count > 5)
+                {
+                    <div style="padding:12px 20px; text-align:center">
+                        <a href="/history" style="color:#007AFF; font-size:14px; text-decoration:none">
+                            Ещё @(_todayExpenses.Count - 5) расходов →
+                        </a>
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    <BottomNav Active="home"/>
+</div>
+
+@if (_state is not null)
+{
+    <div class="fab-container">
+        <button class="fab" @onclick="OpenAdd">
+            <span style="font-size:22px; line-height:1">＋</span> Добавить расход
+        </button>
+    </div>
+}
+
+@if (_showModal)
+{
+    <AddExpenseModal
+        BudgetPlanId="@_budgetPlanId"
+        EditExpense="@_editExpense"
+        OnSaved="@OnExpenseSaved"
+        OnClose="@(() => { _showModal = false; _editExpense = null; })" />
+}
+
+@code {
+    DailyBudgetStateDto? _state;
+    List<DailyStatsDto> _recentDays = [];
+    List<ExpenseDto> _todayExpenses = [];
+    bool _loading = true;
+    bool _showModal;
+    ExpenseDto? _editExpense;
+    Guid _budgetPlanId;
+    string _dateLabel = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Session.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login", replace: true);
+            return;
+        }
+
+        _dateLabel = DateTime.Now.ToString("d MMMM yyyy", new System.Globalization.CultureInfo("ru-RU"));
+        await LoadDataAsync();
+    }
+
+    async Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            _state = await BudgetService.GetDailyStateAsync(Session.UserId!.Value);
+            if (_state is not null)
+            {
+                _recentDays = await BudgetService.GetRecentDaysStatsAsync(Session.UserId!.Value);
+
+                var plan = await BudgetService.GetCurrentPlanAsync(Session.UserId!.Value);
+                if (plan is not null)
+                {
+                    _budgetPlanId = plan.Id;
+                    _todayExpenses = await ExpenseService.GetExpensesByDateAsync(
+                        Session.UserId!.Value, DateOnly.FromDateTime(DateTime.Now));
+                }
+            }
+        }
+        finally { _loading = false; }
+    }
+
+    void OpenAdd() { _editExpense = null; _showModal = true; }
+    void OpenEdit(ExpenseDto e) { _editExpense = e; _showModal = true; }
+
+    async Task OnExpenseSaved()
+    {
+        _showModal = false;
+        _editExpense = null;
+        await LoadDataAsync();
+    }
+
+    static string FormatMoney(decimal v) =>
+        v.ToString("N0", new System.Globalization.CultureInfo("ru-RU")) + " ₽";
+
+    static string FormatMoneyShort(decimal v)
+    {
+        if (Math.Abs(v) >= 1_000_000) return (v / 1_000_000M).ToString("N1") + "М ₽";
+        if (Math.Abs(v) >= 1_000) return (v / 1_000M).ToString("N0") + "К ₽";
+        return v.ToString("N0") + " ₽";
+    }
+
+    static string GetDayName(DateOnly d)
+    {
+        var names = new[] { "Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб" };
+        return names[(int)d.DayOfWeek];
+    }
+
+    static string GetCategoryIcon(string cat) => cat switch
+    {
+        "Еда" => "🍔", "Транспорт" => "🚌", "Покупки" => "🛍️",
+        "Развлечения" => "🎬", "Здоровье" => "💊", "Кафе" => "☕",
+        "ЖКХ" => "🏠", "Связь" => "📱", _ => "💸"
+    };
+
+    static string GetCategoryColor(string cat) => cat switch
+    {
+        "Еда" => "#fff3cd", "Транспорт" => "#d1e8ff", "Покупки" => "#fce4ec",
+        "Развлечения" => "#e8f5e9", "Здоровье" => "#fce8e8", "Кафе" => "#fdf3e7",
+        "ЖКХ" => "#e8eaf6", "Связь" => "#f3e5f5", _ => "#f2f2f7"
+    };
+}

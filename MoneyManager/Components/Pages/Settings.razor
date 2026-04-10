@@ -1,0 +1,172 @@
+@page "/settings"
+@rendermode InteractiveServer
+@inject IBudgetService BudgetService
+@inject UserSessionService Session
+@inject NavigationManager Nav
+
+<PageTitle>Настройки</PageTitle>
+
+<div class="screen safe-top">
+    <div class="page-header">
+        <h1 class="page-title">Настройки</h1>
+    </div>
+
+    <!-- Budget Section -->
+    <p class="section-title" style="font-size:13px; color:#8e8e93; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; padding:4px 20px 8px">
+        Бюджет
+    </p>
+    <div class="settings-group">
+        <div class="settings-item" @onclick="() => _editBudget = true">
+            <span class="si-label">Месячный бюджет</span>
+            <div style="display:flex; align-items:center">
+                @if (_plan is not null)
+                {
+                    <span class="si-value">@FormatMoney(_plan.MonthlyAmount)</span>
+                }
+                else
+                {
+                    <span class="si-value">Не задан</span>
+                }
+                <span class="si-arrow">›</span>
+            </div>
+        </div>
+        <div class="settings-item">
+            <span class="si-label">Активный месяц</span>
+            <span class="si-value">@_monthLabel</span>
+        </div>
+        @if (_plan is not null)
+        {
+            <div class="settings-item">
+                <span class="si-label">Начальный лимит/день</span>
+                <span class="si-value">≈ @FormatMoney(_plan.MonthlyAmount / DateTime.DaysInMonth(_plan.Year, _plan.Month))</span>
+            </div>
+        }
+    </div>
+
+    <!-- Account Section -->
+    <p class="section-title" style="font-size:13px; color:#8e8e93; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; padding:4px 20px 8px">
+        Аккаунт
+    </p>
+    <div class="settings-group">
+        <div class="settings-item">
+            <span class="si-label">Имя</span>
+            <span class="si-value">@Session.DisplayName</span>
+        </div>
+        <div class="settings-item" @onclick="Logout">
+            <span class="si-label si-danger">Выйти</span>
+        </div>
+    </div>
+
+    <!-- Future features placeholder -->
+    <p class="section-title" style="font-size:13px; color:#8e8e93; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; padding:4px 20px 8px">
+        В разработке
+    </p>
+    <div class="settings-group">
+        <div class="settings-item" style="opacity:0.5; cursor:default">
+            <span class="si-label">Управление категориями</span>
+            <span class="si-value">Скоро</span>
+        </div>
+        <div class="settings-item" style="opacity:0.5; cursor:default">
+            <span class="si-label">Push-уведомления</span>
+            <span class="si-value">Скоро</span>
+        </div>
+        <div class="settings-item" style="opacity:0.5; cursor:default">
+            <span class="si-label">Аналитика</span>
+            <span class="si-value">Скоро</span>
+        </div>
+    </div>
+
+    <BottomNav Active="settings"/>
+</div>
+
+<!-- Edit Budget Modal -->
+@if (_editBudget)
+{
+    <div class="modal-overlay" @onclick="() => _editBudget = false">
+        <div class="modal-sheet" @onclick:stopPropagation>
+            <div class="sheet-handle"></div>
+            <div class="sheet-header">
+                <span class="sheet-title">Бюджет на месяц</span>
+                <button class="sheet-close" @onclick="() => _editBudget = false">✕</button>
+            </div>
+
+            <div class="form-group">
+                <div class="form-row">
+                    <label class="form-label">Сумма (₽)</label>
+                    <input class="form-input amount-input"
+                           type="number"
+                           inputmode="decimal"
+                           placeholder="40 000"
+                           @bind="_newAmount"
+                           min="1"/>
+                </div>
+            </div>
+
+            @if (_newAmount > 0)
+            {
+                var days = DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month);
+                <p style="text-align:center; color:#8e8e93; font-size:13px; margin:0 0 16px">
+                    ≈ @FormatMoney(_newAmount / days) в день
+                </p>
+            }
+
+            @if (!string.IsNullOrEmpty(_saveError))
+            {
+                <p class="error-msg">@_saveError</p>
+            }
+
+            <div style="padding:0 16px 20px; display:flex; flex-direction:column; gap:10px">
+                <button class="login-btn" @onclick="SaveBudget" disabled="@(_saving || _newAmount <= 0)">
+                    @(_saving ? "Сохраняем..." : "Сохранить")
+                </button>
+                <button class="login-btn secondary" @onclick="() => _editBudget = false">Отмена</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    BudgetPlanDto? _plan;
+    bool _editBudget;
+    decimal _newAmount;
+    string? _saveError;
+    bool _saving;
+    string _monthLabel = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Session.IsAuthenticated) { Nav.NavigateTo("/login", replace: true); return; }
+        _monthLabel = DateTime.Now.ToString("MMMM yyyy", new System.Globalization.CultureInfo("ru-RU"));
+        await LoadAsync();
+    }
+
+    async Task LoadAsync()
+    {
+        _plan = await BudgetService.GetCurrentPlanAsync(Session.UserId!.Value);
+        _newAmount = _plan?.MonthlyAmount ?? 0;
+    }
+
+    async Task SaveBudget()
+    {
+        _saveError = null;
+        _saving = true;
+        try
+        {
+            var now = DateTime.Now;
+            _plan = await BudgetService.CreateOrUpdatePlanAsync(
+                new CreateBudgetPlanCommand(Session.UserId!.Value, now.Month, now.Year, _newAmount));
+            _editBudget = false;
+        }
+        catch (Exception ex) { _saveError = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    void Logout()
+    {
+        Session.Clear();
+        Nav.NavigateTo("/login", replace: true);
+    }
+
+    static string FormatMoney(decimal v) =>
+        v.ToString("N0", new System.Globalization.CultureInfo("ru-RU")) + " ₽";
+}

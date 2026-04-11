@@ -19,7 +19,7 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownNetworks.Clear();
+    options.KnownIPNetworks.Clear();
     options.KnownProxies.Clear();
 });
 
@@ -50,13 +50,11 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-if (app.Environment.IsDevelopment()) app.UseHttpsRedirection();
-
-app.UseStaticFiles();
-app.UseRouting();
 app.UseAntiforgery();
 
 app.MapGet("/health", () => Results.Ok("healthy"));
+
+app.MapStaticAssets();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

@@ -5,5 +5,6 @@ public record UpdateExpenseCommand(
     decimal Amount,
     string Category,
     string? Note,
-    DateTime ExpenseDate
+    DateTime ExpenseDate,
+    bool IsIncome = false
 );

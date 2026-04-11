@@ -62,6 +62,23 @@
         </div>
     </div>
 
+    <!-- Account Section -->
+    <p class="section-title" style="font-size:13px; color:#8e8e93; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; padding:4px 20px 8px">
+        Аккаунт
+    </p>
+    <div class="settings-group">
+        <div class="settings-item">
+            <span class="si-label">Пользователь</span>
+            <span class="si-value">@Session.DisplayName</span>
+        </div>
+        <form action="/auth/logout" method="post" style="margin:0">
+            <button type="submit" class="settings-item" style="width:100%; border:none; background:transparent; text-align:left; cursor:pointer">
+                <span class="si-label si-danger">Выйти из аккаунта</span>
+                <span class="si-arrow">›</span>
+            </button>
+        </form>
+    </div>
+
     <BottomNav Active="settings"/>
 </div>
 
@@ -83,7 +100,8 @@
                            type="number"
                            inputmode="decimal"
                            placeholder="40 000"
-                           @bind="_newAmount"
+                           value="@(_newAmount == 0 ? "" : _newAmount.ToString())"
+                           @oninput="OnAmountInput"
                            min="1"/>
                 </div>
             </div>
@@ -145,6 +163,14 @@
         }
         catch (Exception ex) { _saveError = ex.Message; }
         finally { _saving = false; }
+    }
+
+    void OnAmountInput(ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out var value))
+            _newAmount = value;
+        else
+            _newAmount = 0;
     }
 
     static string FormatMoney(decimal v) =>

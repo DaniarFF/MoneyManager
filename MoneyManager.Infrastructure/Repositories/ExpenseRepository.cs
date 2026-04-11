@@ -25,7 +25,7 @@ public class ExpenseRepository(AppDbContext db) : IExpenseRepository
     public async Task<decimal> GetTotalSpentAsync(Guid budgetPlanId, CancellationToken ct = default) =>
         await db.Expenses
             .Where(e => e.BudgetPlanId == budgetPlanId)
-            .SumAsync(e => e.Amount, ct);
+            .SumAsync(e => e.IsIncome ? -e.Amount : e.Amount, ct);
 
     public async Task<decimal> GetSpentOnDateAsync(Guid budgetPlanId, DateOnly date, CancellationToken ct = default)
     {
@@ -33,7 +33,7 @@ public class ExpenseRepository(AppDbContext db) : IExpenseRepository
         var to   = date.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
         return await db.Expenses
             .Where(e => e.BudgetPlanId == budgetPlanId && e.ExpenseDate >= from && e.ExpenseDate <= to)
-            .SumAsync(e => e.Amount, ct);
+            .SumAsync(e => e.IsIncome ? -e.Amount : e.Amount, ct);
     }
 
     public async Task<decimal> GetTotalSpentBeforeDateAsync(Guid budgetPlanId, DateOnly beforeDate, CancellationToken ct = default)
@@ -41,7 +41,7 @@ public class ExpenseRepository(AppDbContext db) : IExpenseRepository
         var cutoff = beforeDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         return await db.Expenses
             .Where(e => e.BudgetPlanId == budgetPlanId && e.ExpenseDate < cutoff)
-            .SumAsync(e => e.Amount, ct);
+            .SumAsync(e => e.IsIncome ? -e.Amount : e.Amount, ct);
     }
 
     public async Task AddAsync(Expense expense, CancellationToken ct = default) =>

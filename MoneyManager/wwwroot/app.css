@@ -808,3 +808,35 @@ html, body {
 
 .login-btn:active { opacity: 0.8; }
 .login-btn:disabled, .login-btn.loading { opacity: 0.6; cursor: default; }
+
+.login-btn.income-btn { background: #34c759; }
+
+/* ---- Income Styles ---- */
+.ei-amount.income { color: #34c759; }
+
+.cat-chip.income.selected {
+    background: #e8f8ec;
+    border-color: #34c759;
+}
+.cat-chip.income.selected .cat-name { color: #34c759; }
+
+/* ---- Long Press FAB ---- */
+.fab.long-press-active {
+    background: #34c759;
+    box-shadow: 0 4px 20px rgba(52, 199, 89, 0.4);
+}
+
+/* ---- Amount Input Clear on Focus ---- */
+.amount-input:focus::placeholder {
+    color: transparent;
+}
+
+/* Hide spinner buttons on number inputs */
+.amount-input::-webkit-outer-spin-button,
+.amount-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.amount-input[type=number] {
+    -moz-appearance: textfield;
+}

@@ -18,6 +18,7 @@ public class ExpenseConfiguration : IEntityTypeConfiguration<Expense>
         builder.Property(e => e.Note).HasColumnName("note").HasMaxLength(500);
         builder.Property(e => e.ExpenseDate).HasColumnName("expense_date");
         builder.Property(e => e.CreatedAt).HasColumnName("created_at");
+        builder.Property(e => e.IsIncome).HasColumnName("is_income").HasDefaultValue(false);
 
         builder.HasOne(e => e.BudgetPlan)
             .WithMany(b => b.Expenses)

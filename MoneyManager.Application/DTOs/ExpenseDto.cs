@@ -6,5 +6,6 @@ public record ExpenseDto(
     string Category,
     string? Note,
     DateTime ExpenseDate,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    bool IsIncome = false
 );

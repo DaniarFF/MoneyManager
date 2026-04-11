@@ -10,11 +10,16 @@ public class Expense
     public DateTime ExpenseDate { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
+    /// <summary>
+    /// Если true — это доход (увеличивает бюджет), иначе — расход.
+    /// </summary>
+    public bool IsIncome { get; private set; }
+
     public BudgetPlan BudgetPlan { get; private set; } = default!;
 
     private Expense() { }
 
-    public static Expense Create(Guid budgetPlanId, decimal amount, string category, string? note, DateTime expenseDate)
+    public static Expense Create(Guid budgetPlanId, decimal amount, string category, string? note, DateTime expenseDate, bool isIncome = false)
     {
         if (amount <= 0) throw new ArgumentOutOfRangeException(nameof(amount), "Amount must be positive.");
         ArgumentException.ThrowIfNullOrWhiteSpace(category);
@@ -27,11 +32,12 @@ public class Expense
             Category = category,
             Note = note,
             ExpenseDate = expenseDate,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            IsIncome = isIncome
         };
     }
 
-    public void Update(decimal amount, string category, string? note, DateTime expenseDate)
+    public void Update(decimal amount, string category, string? note, DateTime expenseDate, bool isIncome = false)
     {
         if (amount <= 0) throw new ArgumentOutOfRangeException(nameof(amount));
         ArgumentException.ThrowIfNullOrWhiteSpace(category);
@@ -40,5 +46,6 @@ public class Expense
         Category = category;
         Note = note;
         ExpenseDate = expenseDate;
+        IsIncome = isIncome;
     }
 }

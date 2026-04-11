@@ -11,7 +11,7 @@ public class ExpenseService(
 {
     public async Task<ExpenseDto> AddExpenseAsync(AddExpenseCommand cmd, CancellationToken ct = default)
     {
-        var expense = Expense.Create(cmd.BudgetPlanId, cmd.Amount, cmd.Category, cmd.Note, cmd.ExpenseDate);
+        var expense = Expense.Create(cmd.BudgetPlanId, cmd.Amount, cmd.Category, cmd.Note, cmd.ExpenseDate, cmd.IsIncome);
         await expenseRepo.AddAsync(expense, ct);
         await expenseRepo.SaveChangesAsync(ct);
         return MapToDto(expense);
@@ -22,7 +22,7 @@ public class ExpenseService(
         var expense = await expenseRepo.GetByIdAsync(cmd.ExpenseId, ct)
             ?? throw new InvalidOperationException($"Expense {cmd.ExpenseId} not found.");
 
-        expense.Update(cmd.Amount, cmd.Category, cmd.Note, cmd.ExpenseDate);
+        expense.Update(cmd.Amount, cmd.Category, cmd.Note, cmd.ExpenseDate, cmd.IsIncome);
         await expenseRepo.SaveChangesAsync(ct);
     }
 
@@ -57,5 +57,5 @@ public class ExpenseService(
     }
 
     private static ExpenseDto MapToDto(Expense e) =>
-        new(e.Id, e.Amount, e.Category, e.Note, e.ExpenseDate, e.CreatedAt);
+        new(e.Id, e.Amount, e.Category, e.Note, e.ExpenseDate, e.CreatedAt, e.IsIncome);
 }

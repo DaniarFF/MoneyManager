@@ -1,5 +1,6 @@
 @page "/"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
+@implements IDisposable
 @inject IBudgetService BudgetService
 @inject IExpenseService ExpenseService
 @inject UserSessionService Session
@@ -125,7 +126,7 @@
                                 <div class="ei-note">@e.Note</div>
                             }
                         </div>
-                        <div class="ei-amount">−@FormatMoney(e.Amount)</div>
+                        <div class="ei-amount @(e.IsIncome ? "income" : "")">@(e.IsIncome ? "+" : "−")@FormatMoney(e.Amount)</div>
                     </div>
                 }
                 @if (_todayExpenses.Count > 5)
@@ -146,9 +147,26 @@
 @if (_state is not null)
 {
     <div class="fab-container">
-        <button class="fab" @onclick="OpenAdd">
-            <span style="font-size:22px; line-height:1">＋</span> Добавить расход
+        <button class="fab @(_longPressActive ? "long-press-active" : "")"
+                @onmousedown="OnPointerDown"
+                @onmouseup="OnPointerUp"
+                @onmouseleave="OnPointerUp"
+                @ontouchstart="OnPointerDown"
+                @ontouchend="OnPointerUp"
+                @ontouchcancel="OnPointerUp">
+            <span style="font-size:22px; line-height:1">＋</span>
+            @if (_longPressActive)
+            {
+                <span>Добавить доход</span>
+            }
+            else
+            {
+                <span>Добавить расход</span>
+            }
         </button>
+        <p style="text-align:center; font-size:11px; color:#8e8e93; margin:6px 0 0">
+            Удержите 2 сек для добавления дохода
+        </p>
     </div>
 }
 
@@ -157,8 +175,9 @@
     <AddExpenseModal
         BudgetPlanId="@_budgetPlanId"
         EditExpense="@_editExpense"
+        IsIncomeMode="@_incomeMode"
         OnSaved="@OnExpenseSaved"
-        OnClose="@(() => { _showModal = false; _editExpense = null; })" />
+        OnClose="@(() => { _showModal = false; _editExpense = null; _incomeMode = false; })" />
 }
 
 @code {
@@ -170,6 +189,10 @@
     ExpenseDto? _editExpense;
     Guid _budgetPlanId;
     string _dateLabel = "";
+    bool _incomeMode;
+    bool _longPressActive;
+    System.Threading.Timer? _longPressTimer;
+    DateTime _pointerDownTime;
 
     protected override async Task OnInitializedAsync()
     {
@@ -200,13 +223,53 @@
         finally { _loading = false; }
     }
 
-    void OpenAdd() { _editExpense = null; _showModal = true; }
-    void OpenEdit(ExpenseDto e) { _editExpense = e; _showModal = true; }
+    void OnPointerDown()
+    {
+        _pointerDownTime = DateTime.UtcNow;
+        _longPressActive = false;
+        _longPressTimer?.Dispose();
+        _longPressTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                _longPressActive = true;
+                StateHasChanged();
+            });
+        }, null, 2000, Timeout.Infinite);
+    }
+
+    void OnPointerUp()
+    {
+        _longPressTimer?.Dispose();
+        _longPressTimer = null;
+
+        var elapsed = DateTime.UtcNow - _pointerDownTime;
+        if (elapsed.TotalMilliseconds >= 2000 || _longPressActive)
+        {
+            // Long press - open income mode
+            _incomeMode = true;
+            _editExpense = null;
+            _showModal = true;
+        }
+        else
+        {
+            // Normal click - open expense mode
+            _incomeMode = false;
+            _editExpense = null;
+            _showModal = true;
+        }
+
+        _longPressActive = false;
+        StateHasChanged();
+    }
+
+    void OpenEdit(ExpenseDto e) { _editExpense = e; _incomeMode = e.IsIncome; _showModal = true; }
 
     async Task OnExpenseSaved()
     {
         _showModal = false;
         _editExpense = null;
+        _incomeMode = false;
         await LoadDataAsync();
     }
 
@@ -230,13 +293,26 @@
     {
         "Еда" => "🍔", "Транспорт" => "🚌", "Покупки" => "🛍️",
         "Развлечения" => "🎬", "Здоровье" => "💊", "Кафе" => "☕",
-        "ЖКХ" => "🏠", "Связь" => "📱", _ => "💸"
+        "ЖКХ" => "🏠", "Связь" => "📱",
+        // Income categories
+        "Зарплата" => "💵", "Подработка" => "💼", "Кэшбэк" => "💳",
+        "Подарок" => "🎁", "Возврат" => "↩️",
+        _ => "💸"
     };
 
     static string GetCategoryColor(string cat) => cat switch
     {
         "Еда" => "#fff3cd", "Транспорт" => "#d1e8ff", "Покупки" => "#fce4ec",
         "Развлечения" => "#e8f5e9", "Здоровье" => "#fce8e8", "Кафе" => "#fdf3e7",
-        "ЖКХ" => "#e8eaf6", "Связь" => "#f3e5f5", _ => "#f2f2f7"
+        "ЖКХ" => "#e8eaf6", "Связь" => "#f3e5f5",
+        // Income categories - green tint
+        "Зарплата" => "#d4f5dc", "Подработка" => "#d4f5dc", "Кэшбэк" => "#d4f5dc",
+        "Подарок" => "#d4f5dc", "Возврат" => "#d4f5dc",
+        _ => "#f2f2f7"
     };
+
+    public void Dispose()
+    {
+        _longPressTimer?.Dispose();
+    }
 }

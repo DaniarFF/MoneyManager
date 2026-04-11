@@ -35,12 +35,18 @@
             <div class="expense-card">
                 @foreach (var e in items)
                 {
-                    <div class="expense-item">
-                        <div class="ei-icon" style="background:@GetCategoryColor(e.Category)">
+                    <div class="expense-item @(e.IsIncome ? "income-item" : "")">
+                        <div class="ei-icon" style="background:@GetCategoryColor(e.Category, e.IsIncome)">
                             @GetCategoryIcon(e.Category)
                         </div>
                         <div class="ei-body">
-                            <div class="ei-category">@e.Category</div>
+                            <div class="ei-category">
+                                @e.Category
+                                @if (e.IsIncome)
+                                {
+                                    <span style="font-size:10px; background:#34c759; color:#fff; padding:2px 6px; border-radius:4px; margin-left:6px">доход</span>
+                                }
+                            </div>
                             @if (!string.IsNullOrEmpty(e.Note))
                             {
                                 <div class="ei-note">@e.Note</div>
@@ -50,7 +56,7 @@
                             </div>
                         </div>
                         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px">
-                            <div class="ei-amount">−@FormatMoney(e.Amount)</div>
+                            <div class="ei-amount @(e.IsIncome ? "income" : "")">@(e.IsIncome ? "+" : "−")@FormatMoney(e.Amount)</div>
                             <div style="display:flex; gap:8px">
                                 <button style="font-size:13px; color:#007AFF; background:none; border:none; cursor:pointer; padding:0"
                                         @onclick="() => OpenEdit(e)">Изм.</button>
@@ -78,6 +84,7 @@
     <AddExpenseModal
         BudgetPlanId="@_budgetPlanId"
         EditExpense="@_editExpense"
+        IsIncomeMode="@(_editExpense?.IsIncome ?? false)"
         OnSaved="@OnExpenseSaved"
         OnClose="@(() => { _showModal = false; _editExpense = null; })" />
 }
@@ -88,12 +95,12 @@
         <div class="modal-sheet" @onclick:stopPropagation>
             <div class="sheet-handle"></div>
             <div class="sheet-header">
-                <span class="sheet-title">Удалить расход?</span>
+                <span class="sheet-title">Удалить @(_deleteTarget.IsIncome ? "доход" : "расход")?</span>
                 <button class="sheet-close" @onclick="() => _deleteTarget = null">✕</button>
             </div>
             <div style="padding:8px 20px 20px">
                 <p style="color:#1c1c1e; font-size:16px; margin:0 0 4px">
-                    @_deleteTarget.Category — @FormatMoney(_deleteTarget.Amount)
+                    @_deleteTarget.Category — @(_deleteTarget.IsIncome ? "+" : "")@FormatMoney(_deleteTarget.Amount)
                 </p>
                 @if (!string.IsNullOrEmpty(_deleteTarget.Note))
                 {
@@ -182,13 +189,21 @@
     {
         "Еда" => "🍔", "Транспорт" => "🚌", "Покупки" => "🛍️",
         "Развлечения" => "🎬", "Здоровье" => "💊", "Кафе" => "☕",
-        "ЖКХ" => "🏠", "Связь" => "📱", _ => "💸"
+        "ЖКХ" => "🏠", "Связь" => "📱",
+        // Income categories
+        "Зарплата" => "💵", "Подработка" => "💼", "Кэшбэк" => "💳",
+        "Подарок" => "🎁", "Возврат" => "↩️",
+        _ => "💸"
     };
 
-    static string GetCategoryColor(string cat) => cat switch
+    static string GetCategoryColor(string cat, bool isIncome = false)
     {
-        "Еда" => "#fff3cd", "Транспорт" => "#d1e8ff", "Покупки" => "#fce4ec",
-        "Развлечения" => "#e8f5e9", "Здоровье" => "#fce8e8", "Кафе" => "#fdf3e7",
-        "ЖКХ" => "#e8eaf6", "Связь" => "#f3e5f5", _ => "#f2f2f7"
-    };
+        if (isIncome) return "#d4f5dc"; // Green tint for all income
+        return cat switch
+        {
+            "Еда" => "#fff3cd", "Транспорт" => "#d1e8ff", "Покупки" => "#fce4ec",
+            "Развлечения" => "#e8f5e9", "Здоровье" => "#fce8e8", "Кафе" => "#fdf3e7",
+            "ЖКХ" => "#e8eaf6", "Связь" => "#f3e5f5", _ => "#f2f2f7"
+        };
+    }
 }

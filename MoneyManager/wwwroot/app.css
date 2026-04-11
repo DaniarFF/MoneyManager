@@ -813,6 +813,7 @@ html, body {
 
 /* ---- Income Styles ---- */
 .ei-amount.income { color: #34c759; }
+.expense-item.income-item { background: #f8fff9; }
 
 .cat-chip.income.selected {
     background: #e8f8ec;

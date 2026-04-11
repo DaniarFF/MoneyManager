@@ -1,20 +1,18 @@
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using MoneyManager.Application;
 using MoneyManager.Components;
 using MoneyManager.Infrastructure;
 using MoneyManager.Infrastructure.Persistence;
 
-var builder = WebApplication.CreateBuilder(args);
-
-var port = int.Parse(Environment.GetEnvironmentVariable("PORT") ?? "8080");
-builder.WebHost.ConfigureKestrel(options =>
+// Railway injects PORT — set ASPNETCORE_URLS so Kestrel picks it up
+// without overriding launchSettings.json for local development
+var railwayPort = Environment.GetEnvironmentVariable("PORT");
+if (railwayPort != null)
 {
-    options.ListenAnyIP(port, listenOptions =>
-    {
-        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-    });
-});
+    Environment.SetEnvironmentVariable("ASPNETCORE_URLS", $"http://0.0.0.0:{railwayPort}");
+}
+
+var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {

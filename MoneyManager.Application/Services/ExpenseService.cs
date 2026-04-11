@@ -50,8 +50,8 @@ public class ExpenseService(
         var plan = await budgetRepo.GetByUserAndMonthAsync(userId, date.Month, date.Year, ct);
         if (plan is null) return [];
 
-        var from = date.ToDateTime(TimeOnly.MinValue);
-        var to = date.ToDateTime(TimeOnly.MaxValue);
+        var from = date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var to   = date.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
         var expenses = await expenseRepo.GetByDateRangeAsync(plan.Id, from, to, ct);
         return expenses.OrderByDescending(e => e.ExpenseDate).Select(MapToDto).ToList();
     }

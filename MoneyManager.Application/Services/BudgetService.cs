@@ -110,8 +110,8 @@ public class BudgetService(
         var result = new List<DailyStatsDto>(days);
 
         // Получаем расходы за нужный диапазон одним запросом
-        var from = today.AddDays(-(days - 1)).ToDateTime(TimeOnly.MinValue);
-        var to = today.ToDateTime(TimeOnly.MaxValue);
+        var from = today.AddDays(-(days - 1)).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var to   = today.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
         var expenses = await expenseRepo.GetByDateRangeAsync(plan.Id, from, to, ct);
 
         var totalSpentBeforeRange = await expenseRepo.GetTotalSpentBeforeDateAsync(

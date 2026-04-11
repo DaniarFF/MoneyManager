@@ -91,7 +91,7 @@
     decimal _amount;
     string _category = "Еда";
     string _note = "";
-    DateTime _expenseDate = DateTime.Now;
+    DateTime _expenseDate = DateTime.UtcNow;
     string? _error;
     bool _saving;
 
@@ -116,7 +116,7 @@
             _amount = 0;
             _category = "Еда";
             _note = "";
-            _expenseDate = DateTime.Now;
+            _expenseDate = DateTime.UtcNow;
         }
     }
 

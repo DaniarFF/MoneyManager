@@ -1,0 +1,152 @@
+@inject ICategoryLimitService CategoryLimitService
+
+<div class="modal-overlay" @onclick="OnClose">
+    <div class="modal-sheet" @onclick:stopPropagation>
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+            <span class="sheet-title">Новый лимит</span>
+            <button class="sheet-close" @onclick="OnClose">✕</button>
+        </div>
+
+        <!-- Название -->
+        <div class="form-group">
+            <div class="form-row">
+                <label class="form-label">Название категории</label>
+                <input class="form-input" type="text" placeholder="Например: Еда"
+                       @bind="_name" maxlength="100"/>
+            </div>
+        </div>
+
+        <!-- Иконка -->
+        <p style="font-size:12px; color:#8e8e93; font-weight:600; text-transform:uppercase;
+                  letter-spacing:0.5px; padding:4px 20px 0; margin:0">
+            Иконка
+        </p>
+        <div class="category-grid" style="padding:8px 16px">
+            @foreach (var icon in _icons)
+            {
+                <div class="cat-chip @(_icon == icon ? "selected" : "")"
+                     style="@(_icon == icon ? $"background:{_color}22; border-color:{_color}" : "")"
+                     @onclick="() => _icon = icon">
+                    <span class="cat-icon">@icon</span>
+                </div>
+            }
+        </div>
+
+        <!-- Цвет карточки -->
+        <p style="font-size:12px; color:#8e8e93; font-weight:600; text-transform:uppercase;
+                  letter-spacing:0.5px; padding:12px 20px 8px; margin:0">
+            Цвет карточки
+        </p>
+        <div style="display:flex; gap:10px; padding:0 20px 12px; flex-wrap:wrap">
+            @foreach (var c in _palette)
+            {
+                <button @onclick="() => _color = c"
+                        style="width:36px; height:36px; border-radius:50%; background:@c; border:none;
+                               box-shadow:@(_color == c ? $"0 0 0 3px #fff, 0 0 0 5px {c}" : "none");
+                               cursor:pointer; transition:box-shadow 0.15s">
+                </button>
+            }
+        </div>
+
+        <!-- Превью карточки -->
+        <div style="margin:0 16px 16px; border-radius:16px; padding:16px; color:#fff;
+                    background:linear-gradient(135deg, @_color, @_color + 'cc');"
+             class="hero-preview">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px">
+                <span style="font-size:22px">@(string.IsNullOrEmpty(_icon) ? "📦" : _icon)</span>
+                <span style="font-size:16px; font-weight:600">@(string.IsNullOrEmpty(_name) ? "Название" : _name)</span>
+            </div>
+            <div style="font-size:24px; font-weight:700">@FormatMoney(_amount)</div>
+            <div style="font-size:12px; opacity:0.8; margin-top:4px">лимит на период</div>
+        </div>
+
+        <!-- Сумма -->
+        <div class="form-group">
+            <div class="form-row">
+                <label class="form-label">Сумма лимита</label>
+                <div style="display:flex; align-items:baseline; gap:6px">
+                    <input class="form-input amount-input" type="number" inputmode="decimal"
+                           placeholder="0" min="1" step="1"
+                           value="@(_amount == 0 ? "" : _amount.ToString())"
+                           @oninput="OnAmountInput"/>
+                    <span style="font-size:24px; color:#c7c7cc; font-weight:700">₽</span>
+                </div>
+            </div>
+            @if (_amount > 0)
+            {
+                var days = (DateTime.UtcNow.AddMonths(1) - DateTime.UtcNow).TotalDays;
+                var daily = _amount / (decimal)days;
+                <p style="text-align:center; color:#8e8e93; font-size:13px; margin:4px 0 0">
+                    ≈ @FormatMoney(daily) в день · 30 дней
+                </p>
+            }
+        </div>
+
+        @if (_error is not null)
+        {
+            <p class="error-msg">@_error</p>
+        }
+
+        <div style="padding:4px 16px calc(16px + env(safe-area-inset-bottom, 0px))">
+            <button class="login-btn @(_saving ? "loading" : "")"
+                    style="background:@_color"
+                    @onclick="Save"
+                    disabled="@(_saving || _amount <= 0 || string.IsNullOrWhiteSpace(_name))">
+                @(_saving ? "Создаём..." : "Создать лимит")
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Guid UserId { get; set; }
+    [Parameter, EditorRequired] public EventCallback OnSaved { get; set; }
+    [Parameter, EditorRequired] public EventCallback OnClose { get; set; }
+
+    string _name = "";
+    string _icon = "📦";
+    string _color = "#007AFF";
+    decimal _amount;
+    bool _saving;
+    string? _error;
+
+    static readonly string[] _icons =
+    [
+        "🍔", "☕", "🚌", "🛍️", "🎬", "💊", "🏠", "📱",
+        "✈️", "🎮", "📚", "💪", "🐾", "🍺", "💇", "🎵",
+        "🏋️", "🚗", "💼", "🎓", "💡", "🌿", "📦", "💸"
+    ];
+
+    static readonly string[] _palette =
+    [
+        "#007AFF", "#34c759", "#ff453a", "#ff9f0a", "#af52de",
+        "#ff375f", "#5e5ce6", "#30b0c7", "#32ade6", "#636366"
+    ];
+
+    void OnAmountInput(ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out var v)) _amount = v;
+        else _amount = 0;
+    }
+
+    async Task Save()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_name)) { _error = "Введите название."; return; }
+        if (_amount <= 0) { _error = "Введите сумму лимита."; return; }
+
+        _saving = true;
+        try
+        {
+            await CategoryLimitService.CreateAsync(new CreateCategoryLimitCommand(
+                UserId, _name.Trim(), _icon, _color, _amount));
+            await OnSaved.InvokeAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    static string FormatMoney(decimal v) =>
+        v.ToString("N0", new System.Globalization.CultureInfo("ru-RU")) + " ₽";
+}

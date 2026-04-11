@@ -21,6 +21,8 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IBudgetPlanRepository, BudgetPlanRepository>();
         services.AddScoped<IExpenseRepository, ExpenseRepository>();
+        services.AddScoped<ICategoryLimitRepository, CategoryLimitRepository>();
+        services.AddScoped<IDebtRepository, DebtRepository>();
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
 
         return services;

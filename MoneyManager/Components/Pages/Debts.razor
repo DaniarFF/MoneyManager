@@ -1,0 +1,238 @@
+@page "/debts"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inject IDebtService DebtService
+@inject UserSessionService Session
+
+<PageTitle>Долги</PageTitle>
+
+<div class="screen safe-top">
+    <div class="page-header">
+        <h1 class="page-title">Долги</h1>
+        @if (_activeDebts.Any())
+        {
+            <p class="page-subtitle">
+                @{
+                    var iOweTotal = _activeDebts.Where(d => d.Direction == "IOwe").Sum(d => d.Amount);
+                    var theyOweTotal = _activeDebts.Where(d => d.Direction == "TheyOwe").Sum(d => d.Amount);
+                }
+                @if (iOweTotal > 0) { <span style="color:#ff453a">−@FormatMoney(iOweTotal)</span> }
+                @if (iOweTotal > 0 && theyOweTotal > 0) { <span> · </span> }
+                @if (theyOweTotal > 0) { <span style="color:#34c759">+@FormatMoney(theyOweTotal)</span> }
+            </p>
+        }
+    </div>
+
+    @if (_loading)
+    {
+        <div class="empty-state">
+            <div class="es-icon">⏳</div>
+            <p class="es-text">Загрузка...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Я должен -->
+        @if (_iOwe.Any())
+        {
+            <p class="section-title" style="color:#ff453a">Я должен</p>
+            <div class="expense-card">
+                @foreach (var debt in _iOwe)
+                {
+                    <div class="debt-item debt-owe @(debt.IsOverdue ? "debt-overdue" : "")">
+                        <div class="debt-avatar" style="background:#ffe5e5">💸</div>
+                        <div class="debt-body">
+                            <div class="debt-person">@debt.PersonName @(debt.IsOverdue ? "⚠️" : "")</div>
+                            @if (!string.IsNullOrEmpty(debt.Description))
+                            {
+                                <div class="debt-desc">@debt.Description</div>
+                            }
+                            @if (debt.DueDate.HasValue)
+                            {
+                                <div class="debt-due @(debt.IsOverdue ? "overdue-text" : "")">
+                                    до @debt.DueDate.Value.ToString("d MMM", new System.Globalization.CultureInfo("ru-RU"))
+                                </div>
+                            }
+                        </div>
+                        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px">
+                            <div class="debt-amount owe">−@FormatMoney(debt.Amount)</div>
+                            <button class="debt-close-btn" @onclick="() => ConfirmPay(debt)">
+                                Закрыть
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Мне должны -->
+        @if (_theyOwe.Any())
+        {
+            <p class="section-title" style="color:#34c759">Мне должны</p>
+            <div class="expense-card">
+                @foreach (var debt in _theyOwe)
+                {
+                    <div class="debt-item debt-lend @(debt.IsOverdue ? "debt-overdue" : "")">
+                        <div class="debt-avatar" style="background:#e5ffe9">💰</div>
+                        <div class="debt-body">
+                            <div class="debt-person">@debt.PersonName @(debt.IsOverdue ? "⚠️" : "")</div>
+                            @if (!string.IsNullOrEmpty(debt.Description))
+                            {
+                                <div class="debt-desc">@debt.Description</div>
+                            }
+                            @if (debt.DueDate.HasValue)
+                            {
+                                <div class="debt-due @(debt.IsOverdue ? "overdue-text" : "")">
+                                    до @debt.DueDate.Value.ToString("d MMM", new System.Globalization.CultureInfo("ru-RU"))
+                                </div>
+                            }
+                        </div>
+                        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px">
+                            <div class="debt-amount lend">+@FormatMoney(debt.Amount)</div>
+                            <button class="debt-close-btn" @onclick="() => ConfirmPay(debt)">
+                                Получил
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        @if (!_iOwe.Any() && !_theyOwe.Any())
+        {
+            <div class="empty-state">
+                <div class="es-icon">✅</div>
+                <p class="es-text">Долгов нет</p>
+            </div>
+        }
+
+        <!-- Закрытые долги -->
+        @if (_paidDebts.Any())
+        {
+            <div style="margin: 8px 16px">
+                <button style="width:100%; background:none; border:none; color:#8e8e93; font-size:14px; cursor:pointer; padding:8px 0; text-align:left"
+                        @onclick="() => _showPaid = !_showPaid">
+                    @(_showPaid ? "▾" : "▸") Закрытые долги (@_paidDebts.Count)
+                </button>
+            </div>
+            @if (_showPaid)
+            {
+                <div class="expense-card" style="opacity:0.6">
+                    @foreach (var debt in _paidDebts)
+                    {
+                        <div class="debt-item">
+                            <div class="debt-avatar" style="background:#f2f2f7">✓</div>
+                            <div class="debt-body">
+                                <div class="debt-person" style="text-decoration:line-through">@debt.PersonName</div>
+                                <div class="debt-due">
+                                    закрыт @(debt.PaidAt?.ToString("d MMM", new System.Globalization.CultureInfo("ru-RU")) ?? "")
+                                </div>
+                            </div>
+                            <div class="debt-amount" style="color:#8e8e93">@FormatMoney(debt.Amount)</div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    }
+
+    <BottomNav Active="debts"/>
+</div>
+
+<!-- FAB -->
+<div class="fab-container">
+    <button class="fab" @onclick="() => _showModal = true">
+        <span style="font-size:22px; line-height:1">＋</span> Добавить долг
+    </button>
+</div>
+
+@if (_showModal)
+{
+    <AddDebtModal UserId="Session.UserId"
+                  OnSaved="EventCallback.Factory.Create<CreateDebtCommand>(this, OnDebtSaved)"
+                  OnClose="EventCallback.Factory.Create(this, () => _showModal = false)" />
+}
+
+@if (_confirmTarget is not null)
+{
+    <div class="modal-overlay" @onclick="() => _confirmTarget = null">
+        <div class="modal-sheet" @onclick:stopPropagation>
+            <div class="sheet-handle"></div>
+            <div class="sheet-header">
+                <span class="sheet-title">
+                    @(_confirmTarget.Direction == "IOwe" ? "Закрыть долг?" : "Получил деньги?")
+                </span>
+                <button class="sheet-close" @onclick="() => _confirmTarget = null">✕</button>
+            </div>
+            <div style="padding:8px 20px 20px">
+                <p style="color:#1c1c1e; font-size:16px; margin:0 0 4px">
+                    @_confirmTarget.PersonName — @FormatMoney(_confirmTarget.Amount)
+                </p>
+                @if (!string.IsNullOrEmpty(_confirmTarget.Description))
+                {
+                    <p style="color:#8e8e93; font-size:14px; margin:0 0 20px">@_confirmTarget.Description</p>
+                }
+                <button style="width:100%; height:50px; background:#34c759; color:#fff; border:none;
+                               border-radius:14px; font-size:16px; font-weight:600; cursor:pointer; margin-bottom:10px"
+                        @onclick="DoPay">
+                    Подтвердить
+                </button>
+                <button style="width:100%; height:50px; background:#e5e5ea; color:#1c1c1e; border:none;
+                               border-radius:14px; font-size:16px; cursor:pointer"
+                        @onclick="() => _confirmTarget = null">
+                    Отмена
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    List<DebtDto> _activeDebts = [];
+    List<DebtDto> _paidDebts = [];
+    List<DebtDto> _iOwe = [];
+    List<DebtDto> _theyOwe = [];
+    bool _loading = true;
+    bool _showModal;
+    bool _showPaid;
+    DebtDto? _confirmTarget;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Session.InitializeAsync();
+        await LoadAsync();
+    }
+
+    async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            var all = await DebtService.GetAllAsync(Session.UserId);
+            _activeDebts = all.Where(d => d.Status == "Active").ToList();
+            _paidDebts   = all.Where(d => d.Status == "Paid").ToList();
+            _iOwe        = _activeDebts.Where(d => d.Direction == "IOwe").ToList();
+            _theyOwe     = _activeDebts.Where(d => d.Direction == "TheyOwe").ToList();
+        }
+        finally { _loading = false; }
+    }
+
+    async Task OnDebtSaved(CreateDebtCommand cmd)
+    {
+        _showModal = false;
+        await DebtService.CreateAsync(cmd);
+        await LoadAsync();
+    }
+
+    void ConfirmPay(DebtDto debt) => _confirmTarget = debt;
+
+    async Task DoPay()
+    {
+        if (_confirmTarget is null) return;
+        await DebtService.MarkAsPaidAsync(_confirmTarget.Id);
+        _confirmTarget = null;
+        await LoadAsync();
+    }
+
+    static string FormatMoney(decimal v) =>
+        v.ToString("N0", new System.Globalization.CultureInfo("ru-RU")) + " ₽";
+}

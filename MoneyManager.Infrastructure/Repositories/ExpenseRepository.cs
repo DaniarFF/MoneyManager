@@ -44,6 +44,17 @@ public class ExpenseRepository(AppDbContext db) : IExpenseRepository
             .SumAsync(e => e.IsIncome ? -e.Amount : e.Amount, ct);
     }
 
+    public Task<List<Expense>> GetByUserCategoryAndPeriodAsync(
+        Guid userId, string category, DateTime from, DateTime to, CancellationToken ct = default) =>
+        db.Expenses
+            .Where(e => e.BudgetPlan.UserId == userId
+                     && e.Category == category
+                     && !e.IsIncome
+                     && e.ExpenseDate >= from
+                     && e.ExpenseDate <= to)
+            .OrderByDescending(e => e.ExpenseDate)
+            .ToListAsync(ct);
+
     public async Task AddAsync(Expense expense, CancellationToken ct = default) =>
         await db.Expenses.AddAsync(expense, ct);
 

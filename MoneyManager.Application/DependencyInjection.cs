@@ -10,6 +10,8 @@ public static class DependencyInjection
         services.AddScoped<IBudgetService, BudgetService>();
         services.AddScoped<IExpenseService, ExpenseService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<ICategoryLimitService, CategoryLimitService>();
+        services.AddScoped<IDebtService, DebtService>();
         return services;
     }
 }

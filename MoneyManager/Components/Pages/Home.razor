@@ -3,8 +3,10 @@
 @implements IDisposable
 @inject IBudgetService BudgetService
 @inject IExpenseService ExpenseService
+@inject ICategoryLimitService CategoryLimitService
 @inject UserSessionService Session
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>Бюджет сегодня</PageTitle>
 
@@ -25,118 +27,228 @@
     {
         <div class="empty-state">
             <div class="es-icon">⏳</div>
-            <p class="es-text">Загружаем бюджет...</p>
-        </div>
-    }
-    else if (_state is null)
-    {
-        <div class="budget-hero" style="background: linear-gradient(145deg,#636366,#3a3a3c)">
-            <p class="label">Бюджет на месяц</p>
-            <p class="amount" style="font-size:32px">Не настроен</p>
-            <p class="amount-sub">Задайте бюджет, чтобы начать отслеживать расходы</p>
-        </div>
-        <div style="margin: 8px 16px 0">
-            <button class="fab" @onclick='() => Nav.NavigateTo("/settings")'>
-                + Задать бюджет
-            </button>
+            <p class="es-text">Загружаем...</p>
         </div>
     }
     else
     {
-        var pct = _state.TodayLimit > 0
-            ? Math.Min(100.0, (double)(_state.TodaySpent / _state.TodayLimit) * 100)
-            : 0.0;
-        var isOver = _state.TodaySpent > _state.TodayLimit;
+        <!-- Swipeable hero cards -->
+        <div class="hero-swipe-container" id="heroSwipe">
 
-        <!-- Hero Card -->
-        <div class="budget-hero">
-            <p class="label">Доступно сегодня</p>
-            <p class="amount">@FormatMoney(Math.Max(0, _state.TodayRemaining))</p>
-            <p class="amount-sub">из @FormatMoney(_state.TodayLimit) лимита на день</p>
+            <!-- Card 0: General budget -->
+            <div class="hero-card">
+                @if (_state is null)
+                {
+                    <div class="budget-hero" style="background:linear-gradient(145deg,#636366,#3a3a3c)">
+                        <p class="label">Бюджет на месяц</p>
+                        <p class="amount" style="font-size:28px">Не настроен</p>
+                        <p class="amount-sub">Перейдите в настройки</p>
+                    </div>
+                }
+                else
+                {
+                    var pct = _state.TodayLimit > 0
+                        ? Math.Min(100.0, (double)(_state.TodaySpent / _state.TodayLimit) * 100)
+                        : 0.0;
+                    var isOver = _state.TodaySpent > _state.TodayLimit;
+                    <div class="budget-hero">
+                        <p class="label">Доступно сегодня</p>
+                        <p class="amount">@FormatMoney(Math.Max(0, _state.TodayRemaining))</p>
+                        <p class="amount-sub">из @FormatMoney(_state.TodayLimit) лимита на день</p>
+                        <div class="progress-wrap" style="margin-top:16px">
+                            <div class="progress-bar-bg">
+                                <div class="progress-bar-fill @(isOver ? "overspent" : "")"
+                                     style="width:@pct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%">
+                                </div>
+                            </div>
+                            <div class="progress-labels">
+                                <span>Потрачено @FormatMoney(_state.TodaySpent)</span>
+                                <span>@pct.ToString("F0")%</span>
+                            </div>
+                        </div>
+                        <div class="meta-row">
+                            <div class="meta-item">
+                                <div class="mi-label">Бюджет</div>
+                                <div class="mi-value">@FormatMoneyShort(_state.MonthlyBudget)</div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="mi-label">Остаток</div>
+                                <div class="mi-value">@FormatMoneyShort(_state.RemainingMonthly)</div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="mi-label">Дней</div>
+                                <div class="mi-value">@_state.DaysRemainingInMonth</div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
 
-            <div class="progress-wrap" style="margin-top:16px">
-                <div class="progress-bar-bg">
-                    <div class="progress-bar-fill @(isOver ? "overspent" : "")"
-                         style="width:@pct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%">
+            <!-- Category limit cards -->
+            @foreach (var cat in _categoryStates)
+            {
+                var catPct = cat.LimitAmount > 0
+                    ? Math.Min(100.0, (double)(cat.TotalSpent / cat.LimitAmount) * 100)
+                    : 0.0;
+                var catIsOver = cat.TotalSpent > cat.LimitAmount;
+                <div class="hero-card">
+                    <div class="budget-hero" style="background:linear-gradient(135deg, @cat.Color, @(cat.Color + "cc"))">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:2px">
+                            <span style="font-size:22px">@(cat.Icon ?? "📦")</span>
+                            <span style="font-size:14px; opacity:0.85; font-weight:600; letter-spacing:0.2px">@cat.Name</span>
+                        </div>
+                        <p class="amount">@FormatMoney(Math.Max(0, cat.Remaining))</p>
+                        <p class="amount-sub">из @FormatMoney(cat.LimitAmount) · @cat.DaysRemaining дн.</p>
+                        <div class="progress-wrap" style="margin-top:16px">
+                            <div class="progress-bar-bg" style="background:rgba(255,255,255,0.25)">
+                                <div class="progress-bar-fill @(catIsOver ? "overspent" : "")"
+                                     style="width:@catPct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%; background:rgba(255,255,255,0.9)">
+                                </div>
+                            </div>
+                            <div class="progress-labels">
+                                <span>Потрачено @FormatMoney(cat.TotalSpent)</span>
+                                <span>@catPct.ToString("F0")%</span>
+                            </div>
+                        </div>
+                        <div class="meta-row">
+                            <div class="meta-item">
+                                <div class="mi-label">Сегодня</div>
+                                <div class="mi-value">@FormatMoneyShort(cat.TodaySpent)</div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="mi-label">Лимит/день</div>
+                                <div class="mi-value">@FormatMoneyShort(cat.TodayLimit)</div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="mi-label">До @cat.PeriodEndDate.ToString("d MMM", new System.Globalization.CultureInfo("ru-RU"))</div>
+                                <div class="mi-value" style="font-size:11px">осталось</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="progress-labels">
-                    <span>Потрачено @FormatMoney(_state.TodaySpent)</span>
-                    <span>@pct.ToString("F0")%</span>
-                </div>
-            </div>
+            }
 
-            <div class="meta-row">
-                <div class="meta-item">
-                    <div class="mi-label">Бюджет</div>
-                    <div class="mi-value">@FormatMoneyShort(_state.MonthlyBudget)</div>
-                </div>
-                <div class="meta-item">
-                    <div class="mi-label">Остаток</div>
-                    <div class="mi-value">@FormatMoneyShort(_state.RemainingMonthly)</div>
-                </div>
-                <div class="meta-item">
-                    <div class="mi-label">Дней</div>
-                    <div class="mi-value">@_state.DaysRemainingInMonth</div>
+            <!-- "+" add limit card -->
+            <div class="hero-card">
+                <div class="budget-hero hero-add-card" @onclick="() => _showCreateLimit = true"
+                     style="background:linear-gradient(145deg,#636366,#3a3a3c); cursor:pointer;
+                            display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px">
+                    <span style="font-size:38px">➕</span>
+                    <p class="amount-sub" style="text-align:center; opacity:0.9">Добавить категорийный лимит</p>
                 </div>
             </div>
         </div>
 
-        <!-- Tomorrow Forecast -->
-        <div class="tomorrow-card">
-            <p class="tc-label">Прогноз на завтра</p>
-            <p class="tc-amount">@FormatMoney(_state.TomorrowLimit)</p>
-            <p class="tc-reason @(isOver ? "negative" : "positive")">@_state.TomorrowChangeReason</p>
+        <!-- Dot indicators -->
+        <div class="hero-dots">
+            @for (int i = 0; i < 2 + _categoryStates.Count; i++)
+            {
+                var dotIdx = i;
+                <div class="hero-dot @(_activeCardIndex == dotIdx ? "active" : "")"
+                     @onclick="() => ScrollToCardAsync(dotIdx)">
+                </div>
+            }
         </div>
 
-        <!-- Recent Days Strip -->
-        @if (_recentDays.Count > 0)
+        <!-- Content below cards: depends on active card -->
+        @if (_activeCardIndex == 0)
         {
-            <p class="section-title">Последние @_recentDays.Count дней</p>
-            <div class="daily-strip">
-                <div class="daily-strip-inner">
-                    @foreach (var day in _recentDays)
-                    {
-                        var isToday = day.Date == _state.Today;
-                        <div class="day-chip @(isToday ? "today" : "")">
-                            <div class="dc-day">@GetDayName(day.Date)</div>
-                            <div class="dc-amount">@FormatMoneyShort(day.Spent)</div>
-                            <div class="dc-dot @(day.IsOverspent ? "over" : "")"></div>
-                        </div>
-                    }
+            if (_state is not null)
+            {
+                var isOverG = _state.TodaySpent > _state.TodayLimit;
+                <div class="tomorrow-card">
+                    <p class="tc-label">Прогноз на завтра</p>
+                    <p class="tc-amount">@FormatMoney(_state.TomorrowLimit)</p>
+                    <p class="tc-reason @(isOverG ? "negative" : "positive")">@_state.TomorrowChangeReason</p>
                 </div>
-            </div>
-        }
-
-        <!-- Today's Expenses Preview -->
-        @if (_todayExpenses.Count > 0)
-        {
-            <p class="section-title">Сегодня</p>
-            <div class="expense-card">
-                @foreach (var e in _todayExpenses.Take(5))
+                if (_recentDays.Count > 0)
                 {
-                    <div class="expense-item" @onclick="() => OpenEdit(e)">
-                        <div class="ei-icon" style="background:@GetCategoryColor(e.Category)">
-                            @GetCategoryIcon(e.Category)
-                        </div>
-                        <div class="ei-body">
-                            <div class="ei-category">@e.Category</div>
-                            @if (!string.IsNullOrEmpty(e.Note))
+                    <p class="section-title">Последние @_recentDays.Count дней</p>
+                    <div class="daily-strip">
+                        <div class="daily-strip-inner">
+                            @foreach (var day in _recentDays)
                             {
-                                <div class="ei-note">@e.Note</div>
+                                var isToday = day.Date == _state.Today;
+                                <div class="day-chip @(isToday ? "today" : "")">
+                                    <div class="dc-day">@GetDayName(day.Date)</div>
+                                    <div class="dc-amount">@FormatMoneyShort(day.Spent)</div>
+                                    <div class="dc-dot @(day.IsOverspent ? "over" : "")"></div>
+                                </div>
                             }
                         </div>
-                        <div class="ei-amount @(e.IsIncome ? "income" : "")">@(e.IsIncome ? "+" : "−")@FormatMoney(e.Amount)</div>
                     </div>
                 }
-                @if (_todayExpenses.Count > 5)
+                if (_todayExpenses.Count > 0)
                 {
-                    <div style="padding:12px 20px; text-align:center">
-                        <a href="/history" style="color:#007AFF; font-size:14px; text-decoration:none">
-                            Ещё @(_todayExpenses.Count - 5) расходов →
-                        </a>
+                    <p class="section-title">Сегодня</p>
+                    <div class="expense-card">
+                        @foreach (var e in _todayExpenses.Take(5))
+                        {
+                            <div class="expense-item" @onclick="() => OpenEdit(e)">
+                                <div class="ei-icon" style="background:@GetCategoryColor(e.Category)">
+                                    @GetCategoryIcon(e.Category)
+                                </div>
+                                <div class="ei-body">
+                                    <div class="ei-category">@e.Category</div>
+                                    @if (!string.IsNullOrEmpty(e.Note))
+                                    {
+                                        <div class="ei-note">@e.Note</div>
+                                    }
+                                </div>
+                                <div class="ei-amount @(e.IsIncome ? "income" : "")">@(e.IsIncome ? "+" : "−")@FormatMoney(e.Amount)</div>
+                            </div>
+                        }
+                        @if (_todayExpenses.Count > 5)
+                        {
+                            <div style="padding:12px 20px; text-align:center">
+                                <a href="/history" style="color:#007AFF; font-size:14px; text-decoration:none">
+                                    Ещё @(_todayExpenses.Count - 5) расходов →
+                                </a>
+                            </div>
+                        }
                     </div>
                 }
+            }
+            else
+            {
+                <div style="margin: 8px 16px 0">
+                    <button class="fab" @onclick='() => Nav.NavigateTo("/settings")'>
+                        + Задать бюджет
+                    </button>
+                </div>
+            }
+        }
+        else if (_activeCardIndex >= 1 && _activeCardIndex <= _categoryStates.Count)
+        {
+            var activeCat = _categoryStates[_activeCardIndex - 1];
+            var catIsOverToday = activeCat.TodaySpent > activeCat.TodayLimit;
+            <div class="tomorrow-card">
+                <p class="tc-label">Прогноз на завтра · @activeCat.Name</p>
+                <p class="tc-amount">@FormatMoney(activeCat.TomorrowLimit)</p>
+                <p class="tc-reason @(catIsOverToday ? "negative" : "positive")">@activeCat.TomorrowReason</p>
+            </div>
+            if (activeCat.RecentDays.Count > 0)
+            {
+                <p class="section-title">Последние @activeCat.RecentDays.Count дней</p>
+                <div class="daily-strip">
+                    <div class="daily-strip-inner">
+                        @foreach (var day in activeCat.RecentDays)
+                        {
+                            var isToday = day.Date == DateOnly.FromDateTime(DateTime.UtcNow);
+                            <div class="day-chip @(isToday ? "today" : "")">
+                                <div class="dc-day">@GetDayName(day.Date)</div>
+                                <div class="dc-amount">@FormatMoneyShort(day.Spent)</div>
+                                <div class="dc-dot @(day.IsOverspent ? "over" : "")"></div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            <div style="margin: 4px 16px 16px; text-align:right">
+                <button style="background:none; border:none; color:#ff453a; font-size:13px; cursor:pointer; padding:4px 0"
+                        @onclick="() => ArchiveLimitAsync(activeCat.LimitId)">
+                    Архивировать лимит
+                </button>
             </div>
         }
     }
@@ -144,6 +256,7 @@
     <BottomNav Active="home"/>
 </div>
 
+<!-- FAB -->
 @if (_state is not null)
 {
     <div class="fab-container">
@@ -170,6 +283,7 @@
     </div>
 }
 
+<!-- Add Expense Modal -->
 @if (_showModal)
 {
     <AddExpenseModal
@@ -180,12 +294,23 @@
         OnClose="@(() => { _showModal = false; _editExpense = null; _incomeMode = false; })" />
 }
 
+<!-- Create Category Limit Modal -->
+@if (_showCreateLimit)
+{
+    <CreateCategoryLimitModal
+        UserId="Session.UserId"
+        OnSaved="OnLimitCreated"
+        OnClose="EventCallback.Factory.Create(this, () => _showCreateLimit = false)" />
+}
+
 @code {
     DailyBudgetStateDto? _state;
     List<DailyStatsDto> _recentDays = [];
     List<ExpenseDto> _todayExpenses = [];
+    List<CategoryLimitStateDto> _categoryStates = [];
     bool _loading = true;
     bool _showModal;
+    bool _showCreateLimit;
     ExpenseDto? _editExpense;
     Guid _budgetPlanId;
     string _dateLabel = "";
@@ -193,6 +318,9 @@
     bool _longPressActive;
     System.Threading.Timer? _longPressTimer;
     DateTime _pointerDownTime;
+    int _activeCardIndex;
+    bool _heroJsSetup;
+    DotNetObjectReference<Home>? _dotnetRef;
 
     protected override async Task OnInitializedAsync()
     {
@@ -201,16 +329,27 @@
         await LoadDataAsync();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_loading && !_heroJsSetup)
+        {
+            _heroJsSetup = true;
+            _dotnetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("setupHeroSwipe", _dotnetRef);
+        }
+    }
+
     async Task LoadDataAsync()
     {
         _loading = true;
         try
         {
             _state = await BudgetService.GetDailyStateAsync(Session.UserId);
+            _categoryStates = await CategoryLimitService.GetActiveStatesAsync(Session.UserId);
+
             if (_state is not null)
             {
                 _recentDays = await BudgetService.GetRecentDaysStatsAsync(Session.UserId);
-
                 var plan = await BudgetService.GetCurrentPlanAsync(Session.UserId);
                 if (plan is not null)
                 {
@@ -221,6 +360,37 @@
             }
         }
         finally { _loading = false; }
+    }
+
+    [JSInvokable]
+    public async Task OnCardChanged(int index)
+    {
+        _activeCardIndex = index;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task ScrollToCardAsync(int index)
+    {
+        _activeCardIndex = index;
+        await JS.InvokeVoidAsync("scrollHeroToCard", index);
+        StateHasChanged();
+    }
+
+    async Task OnLimitCreated()
+    {
+        _showCreateLimit = false;
+        await LoadDataAsync();
+        _activeCardIndex = _categoryStates.Count; // scroll to newly created (last category card)
+        _heroJsSetup = false;
+        StateHasChanged();
+    }
+
+    async Task ArchiveLimitAsync(Guid limitId)
+    {
+        await CategoryLimitService.ArchiveAsync(limitId);
+        _activeCardIndex = 0;
+        _heroJsSetup = false;
+        await LoadDataAsync();
     }
 
     void OnPointerDown()
@@ -246,14 +416,12 @@
         var elapsed = DateTime.UtcNow - _pointerDownTime;
         if (elapsed.TotalMilliseconds >= 2000 || _longPressActive)
         {
-            // Long press - open income mode
             _incomeMode = true;
             _editExpense = null;
             _showModal = true;
         }
         else
         {
-            // Normal click - open expense mode
             _incomeMode = false;
             _editExpense = null;
             _showModal = true;
@@ -294,7 +462,6 @@
         "Еда" => "🍔", "Транспорт" => "🚌", "Покупки" => "🛍️",
         "Развлечения" => "🎬", "Здоровье" => "💊", "Кафе" => "☕",
         "ЖКХ" => "🏠", "Связь" => "📱",
-        // Income categories
         "Зарплата" => "💵", "Подработка" => "💼", "Кэшбэк" => "💳",
         "Подарок" => "🎁", "Возврат" => "↩️",
         _ => "💸"
@@ -305,7 +472,6 @@
         "Еда" => "#fff3cd", "Транспорт" => "#d1e8ff", "Покупки" => "#fce4ec",
         "Развлечения" => "#e8f5e9", "Здоровье" => "#fce8e8", "Кафе" => "#fdf3e7",
         "ЖКХ" => "#e8eaf6", "Связь" => "#f3e5f5",
-        // Income categories - green tint
         "Зарплата" => "#d4f5dc", "Подработка" => "#d4f5dc", "Кэшбэк" => "#d4f5dc",
         "Подарок" => "#d4f5dc", "Возврат" => "#d4f5dc",
         _ => "#f2f2f7"
@@ -314,5 +480,6 @@
     public void Dispose()
     {
         _longPressTimer?.Dispose();
+        _dotnetRef?.Dispose();
     }
 }

@@ -841,3 +841,140 @@ html, body {
 .amount-input[type=number] {
     -moz-appearance: textfield;
 }
+
+/* ===================== Hero Swipe Cards ===================== */
+.hero-swipe-container {
+    display: flex;
+    overflow-x: scroll;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0;
+}
+.hero-swipe-container::-webkit-scrollbar { display: none; }
+
+.hero-card {
+    flex: 0 0 100%;
+    width: 100%;
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+}
+
+/* Dot indicators */
+.hero-dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 0 4px;
+}
+.hero-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #d1d1d6;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+.hero-dot.active {
+    background: #007AFF;
+    transform: scale(1.3);
+}
+
+/* Add-card button area */
+.hero-add-card {
+    min-height: 170px;
+}
+
+/* ===================== Category Grid (emoji picker) ===================== */
+.category-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+}
+.cat-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 4px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    background: #f2f2f7;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.cat-chip.selected {
+    border-color: #007AFF;
+    background: #e8f0ff;
+}
+.cat-icon { font-size: 22px; line-height: 1.2; }
+
+/* ===================== Debt Items ===================== */
+.debt-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f2f2f7;
+}
+.debt-item:last-child { border-bottom: none; }
+
+.debt-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.debt-body {
+    flex: 1;
+    min-width: 0;
+}
+.debt-person {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1c1c1e;
+}
+.debt-desc {
+    font-size: 13px;
+    color: #8e8e93;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.debt-due {
+    font-size: 12px;
+    color: #8e8e93;
+    margin-top: 2px;
+}
+.debt-due.overdue-text { color: #ff453a; font-weight: 600; }
+
+.debt-amount {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1c1c1e;
+}
+.debt-amount.owe { color: #ff453a; }
+.debt-amount.lend { color: #34c759; }
+
+.debt-overdue {
+    background: #fff5f5;
+    border-left: 3px solid #ff453a;
+}
+
+.debt-close-btn {
+    background: #f2f2f7;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #007AFF;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.debt-close-btn:active { opacity: 0.7; }

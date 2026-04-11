@@ -1,0 +1,160 @@
+@using MoneyManager.Domain.Entities
+@inject IBudgetService BudgetService
+
+<div class="modal-overlay" @onclick="OnClose">
+    <div class="modal-sheet" @onclick:stopPropagation>
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+            <span class="sheet-title">@(_editingDebt ? "Редактировать долг" : "Новый долг")</span>
+            <button class="sheet-close" @onclick="OnClose">✕</button>
+        </div>
+
+        <!-- Direction toggle -->
+        <div style="padding: 0 16px 12px">
+            <div class="login-tabs">
+                <button class="login-tab @(_isIOwe ? "active" : "")" @onclick='() => _isIOwe = true'>
+                    Я должен
+                </button>
+                <button class="login-tab @(!_isIOwe ? "active" : "")" @onclick='() => _isIOwe = false'>
+                    Мне должны
+                </button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="form-row">
+                <label class="form-label">@(_isIOwe ? "Кому должен" : "Кто должен")</label>
+                <input class="form-input" type="text" placeholder="Имя"
+                       @bind="_personName" maxlength="100"/>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="form-row">
+                <label class="form-label">Сумма</label>
+                <div style="display:flex; align-items:baseline; gap:6px">
+                    <input class="form-input amount-input" type="number" inputmode="decimal"
+                           placeholder="0" min="0.01" step="0.01"
+                           value="@(_amount == 0 ? "" : _amount.ToString())"
+                           @oninput="OnAmountInput"/>
+                    <span style="font-size:24px; color:#c7c7cc; font-weight:700">₽</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="form-row">
+                <label class="form-label">Описание (необязательно)</label>
+                <input class="form-input" type="text" placeholder="Например: за ужин"
+                       @bind="_description" maxlength="500"/>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="form-row">
+                <label class="form-label">Срок возврата (необязательно)</label>
+                <input class="form-input" type="date" @bind="_dueDate"/>
+            </div>
+        </div>
+
+        @if (_isIOwe && !_editingDebt)
+        {
+            <div style="margin: 0 16px 12px; background: #f8f9fa; border-radius: 14px; padding: 14px 16px">
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer">
+                    <input type="checkbox" @bind="_deductFromBudget"
+                           style="width:18px; height:18px; accent-color:#007AFF"/>
+                    <span style="font-size:14px; color:#1c1c1e; font-weight:500">
+                        Списать с бюджета сейчас
+                    </span>
+                </label>
+                @if (_deductFromBudget && _currentPlan is not null)
+                {
+                    <div style="margin-top:12px">
+                        <label class="form-label">Категория расхода</label>
+                        <select class="form-input" @bind="_deductCategory" style="height:44px">
+                            @foreach (var cat in _categories)
+                            {
+                                <option value="@cat">@cat</option>
+                            }
+                        </select>
+                    </div>
+                }
+                @if (_deductFromBudget && _currentPlan is null)
+                {
+                    <p style="font-size:12px; color:#ff453a; margin: 8px 0 0">
+                        Нет активного бюджетного плана для списания
+                    </p>
+                }
+            </div>
+        }
+
+        @if (_error is not null)
+        {
+            <p class="error-msg">@_error</p>
+        }
+
+        <div style="padding: 4px 16px calc(16px + env(safe-area-inset-bottom, 0px))">
+            <button class="login-btn @(_saving ? "loading" : "")"
+                    @onclick="Save" disabled="@(_saving || _amount <= 0 || string.IsNullOrWhiteSpace(_personName))">
+                @(_saving ? "Сохраняем..." : "Добавить долг")
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Guid UserId { get; set; }
+    [Parameter, EditorRequired] public EventCallback<CreateDebtCommand> OnSaved { get; set; }
+    [Parameter, EditorRequired] public EventCallback OnClose { get; set; }
+
+    string _personName = "";
+    decimal _amount;
+    string? _description;
+    DateTime? _dueDate;
+    bool _isIOwe = true;
+    bool _deductFromBudget;
+    string _deductCategory = "Еда";
+    bool _saving;
+    string? _error;
+    bool _editingDebt;
+    BudgetPlanDto? _currentPlan;
+
+    static readonly string[] _categories =
+        ["Еда", "Кафе", "Транспорт", "Покупки", "Развлечения", "Здоровье", "ЖКХ", "Связь", "Другое"];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentPlan = await BudgetService.GetCurrentPlanAsync(UserId);
+    }
+
+    void OnAmountInput(ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out var v)) _amount = v;
+        else _amount = 0;
+    }
+
+    async Task Save()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_personName)) { _error = "Введите имя."; return; }
+        if (_amount <= 0) { _error = "Введите сумму."; return; }
+
+        _saving = true;
+        try
+        {
+            var cmd = new CreateDebtCommand(
+                UserId,
+                _personName.Trim(),
+                _isIOwe ? Domain.Entities.DebtDirection.IOwe
+                        : Domain.Entities.DebtDirection.TheyOwe,
+                _amount,
+                string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(),
+                _dueDate.HasValue ? DateTime.SpecifyKind(_dueDate.Value, DateTimeKind.Utc) : null,
+                _deductFromBudget && _currentPlan is not null ? _currentPlan.Id : null,
+                _deductFromBudget ? _deductCategory : null);
+            await OnSaved.InvokeAsync(cmd);
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+}

@@ -7,6 +7,8 @@ public interface IExpenseRepository
     Task<Expense?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<List<Expense>> GetByBudgetPlanAsync(Guid budgetPlanId, CancellationToken ct = default);
     Task<List<Expense>> GetByDateRangeAsync(Guid budgetPlanId, DateTime from, DateTime to, CancellationToken ct = default);
+    /// <summary>Расходы по пользователю в диапазоне дат и категории (для категорийных лимитов).</summary>
+    Task<List<Expense>> GetByUserCategoryAndPeriodAsync(Guid userId, string category, DateTime from, DateTime to, CancellationToken ct = default);
     Task<decimal> GetTotalSpentAsync(Guid budgetPlanId, CancellationToken ct = default);
     Task<decimal> GetSpentOnDateAsync(Guid budgetPlanId, DateOnly date, CancellationToken ct = default);
     /// <summary>

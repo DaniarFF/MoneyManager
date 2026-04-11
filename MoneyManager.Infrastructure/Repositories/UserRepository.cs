@@ -15,10 +15,11 @@ public class UserRepository(AppDbContext db, IPasswordHasher passwordHasher) : I
 
     public async Task<User?> FindByAccessKeyPlainAsync(string plainKey, CancellationToken ct = default)
     {
-        // Загружаем всех пользователей для BCrypt-сравнения.
-        // Для личного приложения пользователей единицы — это приемлемо.
         var users = await db.Users.ToListAsync(ct);
-        return users.FirstOrDefault(u => passwordHasher.Verify(plainKey, u.AccessKey));
+        // BCrypt — CPU-интенсивная операция. Task.Run не блокирует поток Blazor.
+        return await Task.Run(
+            () => users.FirstOrDefault(u => passwordHasher.Verify(plainKey, u.AccessKey)),
+            ct);
     }
 
     public Task<bool> AnyAsync(CancellationToken ct = default) =>

@@ -10,8 +10,9 @@
 }
 
 @code {
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        await Session.InitializeAsync();
         if (!Session.IsAuthenticated)
             Nav.NavigateTo("/login", replace: true);
     }

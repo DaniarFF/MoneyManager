@@ -173,6 +173,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await Session.InitializeAsync();
         _dateLabel = DateTime.Now.ToString("d MMMM yyyy", new System.Globalization.CultureInfo("ru-RU"));
         await LoadDataAsync();
     }

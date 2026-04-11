@@ -1,18 +1,28 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Components.Authorization;
 
 namespace MoneyManager.Services;
 
-public class UserSessionService
+/// <summary>
+/// Scoped-сервис. Вызови InitializeAsync() в OnInitializedAsync() страницы.
+/// </summary>
+public class UserSessionService(AuthenticationStateProvider authStateProvider)
 {
-    public Guid UserId { get; }
-    public string DisplayName { get; } = "";
-    public bool IsAuthenticated { get; }
+    public Guid UserId { get; private set; }
+    public string DisplayName { get; private set; } = "";
+    public bool IsAuthenticated { get; private set; }
 
-    public UserSessionService(IHttpContextAccessor httpContextAccessor)
+    private bool _initialized;
+
+    public async Task InitializeAsync()
     {
-        var user = httpContextAccessor.HttpContext?.User;
-        if (user?.Identity?.IsAuthenticated == true)
+        if (_initialized) return;
+        _initialized = true;
+
+        var state = await authStateProvider.GetAuthenticationStateAsync();
+        var user = state.User;
+
+        if (user.Identity?.IsAuthenticated == true)
         {
             var idStr = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             UserId = idStr != null ? Guid.Parse(idStr) : Guid.Empty;

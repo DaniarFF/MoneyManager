@@ -344,14 +344,14 @@ html, body {
 /* ---- Bottom Action Button ---- */
 .fab-container {
     position: fixed;
-    bottom: 0;
+    bottom: calc(60px + env(safe-area-inset-bottom, 0px));
     left: 50%;
     transform: translateX(-50%);
     width: 100%;
     max-width: 430px;
-    padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
-    background: linear-gradient(to top, rgba(242,242,247,1) 70%, rgba(242,242,247,0));
-    z-index: 100;
+    padding: 12px 20px;
+    background: linear-gradient(to top, rgba(242,242,247,0.95) 60%, rgba(242,242,247,0));
+    z-index: 60;
 }
 
 .fab {

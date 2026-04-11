@@ -121,6 +121,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await Session.InitializeAsync();
         _monthLabel = DateTime.Now.ToString("MMMM yyyy", new System.Globalization.CultureInfo("ru-RU"));
         await LoadAsync();
     }

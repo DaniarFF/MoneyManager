@@ -97,5 +97,6 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 await app.Services.MigrateAsync();
+await DbSeeder.CleanupLegacyUserAsync(app.Services);
 
 app.Run();

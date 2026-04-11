@@ -57,6 +57,7 @@ app.UseAntiforgery();
 app.MapGet("/health", () => Results.Ok("healthy"));
 
 app.MapStaticAssets();
+app.UseStaticFiles();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

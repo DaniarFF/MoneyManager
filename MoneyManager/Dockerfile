@@ -17,8 +17,7 @@ COPY . .
 # Publish the web project
 RUN dotnet publish MoneyManager/MoneyManager.csproj \
     -c Release \
-    -o /app/publish \
-    --no-restore
+    -o /app/publish
 
 # Stage 2: Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime

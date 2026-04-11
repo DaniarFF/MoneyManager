@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using MoneyManager.Application;
 using MoneyManager.Components;
@@ -33,6 +34,9 @@ builder.Services.AddSignalR(options =>
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services.AddDataProtection()
+    .PersistKeysToDbContext<AppDbContext>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<MoneyManager.Services.UserSessionService>();

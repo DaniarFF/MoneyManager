@@ -1,5 +1,18 @@
 @inherits LayoutComponentBase
+@inject UserSessionService Session
+@inject NavigationManager Nav
 
-<div class="mobile-shell">
-    @Body
-</div>
+@if (Session.IsAuthenticated)
+{
+    <div class="mobile-shell">
+        @Body
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        if (!Session.IsAuthenticated)
+            Nav.NavigateTo("/login", replace: true);
+    }
+}

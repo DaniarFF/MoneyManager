@@ -1,7 +1,136 @@
 @page "/login"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@layout EmptyLayout
+@inject IAuthService AuthService
 @inject NavigationManager Nav
 
+<PageTitle>Вход</PageTitle>
+
+<div class="login-screen safe-top safe-bottom">
+
+    <div class="login-header">
+        <div class="login-logo">💰</div>
+        <h1 class="login-title">MoneyManager</h1>
+        <p class="login-subtitle">Управляй своим бюджетом</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="login-tabs">
+        <button class="login-tab @(_tab == "login" ? "active" : "")"
+                @onclick='() => SwitchTab("login")'>Войти</button>
+        <button class="login-tab @(_tab == "register" ? "active" : "")"
+                @onclick='() => SwitchTab("register")'>Регистрация</button>
+    </div>
+
+    <div class="login-card">
+
+        @if (_tab == "login")
+        {
+            <p class="field-label">Кодовое слово</p>
+            <input class="login-input"
+                   type="password"
+                   placeholder="Введите кодовое слово"
+                   @bind="_passphrase"
+                   @onkeydown="OnKeyDown" />
+
+            @if (_error is not null)
+            {
+                <p class="login-error">@_error</p>
+            }
+
+            <button class="login-btn @(_loading ? "loading" : "")"
+                    @onclick="DoLogin"
+                    disabled="@_loading">
+                @(_loading ? "Входим…" : "Войти")
+            </button>
+        }
+        else
+        {
+            <p class="field-label">Ваше имя</p>
+            <input class="login-input"
+                   type="text"
+                   placeholder="Как вас зовут?"
+                   @bind="_name"
+                   @onkeydown="OnKeyDown" />
+
+            <p class="field-label" style="margin-top:16px">Кодовое слово</p>
+            <input class="login-input"
+                   type="password"
+                   placeholder="Придумайте кодовое слово"
+                   @bind="_passphrase"
+                   @onkeydown="OnKeyDown" />
+            <p class="field-hint">Запомните его — оно нужно для входа</p>
+
+            @if (_error is not null)
+            {
+                <p class="login-error">@_error</p>
+            }
+
+            <button class="login-btn @(_loading ? "loading" : "")"
+                    @onclick="DoRegister"
+                    disabled="@_loading">
+                @(_loading ? "Создаём…" : "Создать аккаунт")
+            </button>
+        }
+
+    </div>
+
+</div>
+
 @code {
-    protected override void OnInitialized() =>
-        Nav.NavigateTo("/", replace: true);
+    string _tab = "login";
+    string _passphrase = "";
+    string _name = "";
+    string? _error;
+    bool _loading;
+
+    void SwitchTab(string tab)
+    {
+        _tab = tab;
+        _error = null;
+        _passphrase = "";
+        _name = "";
+    }
+
+    async Task DoLogin()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_passphrase)) { _error = "Введите кодовое слово."; return; }
+        _loading = true;
+        try
+        {
+            var result = await AuthService.LoginAsync(_passphrase);
+            if (!result.Success) { _error = result.Error; return; }
+            Nav.NavigateTo(
+                $"/auth/signin?userId={result.UserId}&name={Uri.EscapeDataString(result.DisplayName!)}",
+                forceLoad: true);
+        }
+        finally { _loading = false; }
+    }
+
+    async Task DoRegister()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_name)) { _error = "Введите ваше имя."; return; }
+        if (string.IsNullOrWhiteSpace(_passphrase)) { _error = "Введите кодовое слово."; return; }
+        _loading = true;
+        try
+        {
+            var result = await AuthService.RegisterAsync(_name, _passphrase);
+            if (!result.Success) { _error = result.Error; return; }
+            Nav.NavigateTo(
+                $"/auth/signin?userId={result.UserId}&name={Uri.EscapeDataString(result.DisplayName!)}",
+                forceLoad: true);
+        }
+        finally { _loading = false; }
+    }
+
+    async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            if (_tab == "login") await DoLogin();
+            else await DoRegister();
+        }
+    }
 }

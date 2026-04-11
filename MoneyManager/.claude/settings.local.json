@@ -32,7 +32,13 @@
       "Bash(cmd.exe /c \"wmic process where name='MoneyManager.exe' get ProcessId,Name 2>nul\")",
       "Bash(dotnet publish:*)",
       "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); endpoints=[e['Route'] for e in data.get\\('Endpoints',[]\\)] ; [print\\(e\\) for e in endpoints if 'blazor' in e.lower\\(\\) or '_framework' in e.lower\\(\\)]\")",
-      "Bash(dotnet restore:*)"
+      "Bash(dotnet restore:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.railway.com)",
+      "WebFetch(domain:station.railway.com)",
+      "WebFetch(domain:railway.com)",
+      "Bash(xargs grep:*)"
     ]
   }
 }

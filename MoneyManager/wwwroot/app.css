@@ -832,6 +832,27 @@ html, body {
     color: transparent;
 }
 
+/* ---- Date Quick Buttons ---- */
+.date-quick-btn {
+    flex: 1;
+    padding: 7px 0;
+    border: 1.5px solid #e5e5ea;
+    border-radius: 10px;
+    background: #f2f2f7;
+    color: #1c1c1e;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.date-quick-btn.active {
+    background: #007AFF;
+    border-color: #007AFF;
+    color: #fff;
+}
+.date-quick-btn:active { opacity: 0.7; }
+
 /* Hide spinner buttons on number inputs */
 .amount-input::-webkit-outer-spin-button,
 .amount-input::-webkit-inner-spin-button {

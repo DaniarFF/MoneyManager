@@ -63,11 +63,29 @@
                        @bind="_note"
                        maxlength="200"/>
             </div>
+        </div>
+
+        <!-- Date -->
+        <div class="form-group">
             <div class="form-row">
-                <label class="form-label">Дата и время</label>
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px">
+                    <label class="form-label" style="margin:0">Дата</label>
+                    @if (IsBackdated)
+                    {
+                        <span style="font-size:12px; color:#ff9f0a; font-weight:600; background:#fff8e8; padding:3px 8px; border-radius:8px">
+                            🕐 Задним числом
+                        </span>
+                    }
+                </div>
+                <div style="display:flex; gap:8px; margin-bottom:8px">
+                    <button class="date-quick-btn @(IsToday ? "active" : "")" @onclick="SetToday">Сегодня</button>
+                    <button class="date-quick-btn @(IsYesterday ? "active" : "")" @onclick="SetYesterday">Вчера</button>
+                    <button class="date-quick-btn @(IsDayBefore ? "active" : "")" @onclick="SetDayBefore">Позавчера</button>
+                </div>
                 <input class="form-input"
                        type="datetime-local"
-                       @bind="_expenseDate"/>
+                       value="@_expenseDate.ToString("yyyy-MM-ddTHH:mm")"
+                       @onchange="OnDateChanged"/>
             </div>
         </div>
 
@@ -121,6 +139,28 @@
 
     (string Name, string Icon)[] GetCategories() => _isIncome ? _incomeCategories : _expenseCategories;
 
+    DateOnly TodayUtc => DateOnly.FromDateTime(DateTime.UtcNow);
+    DateOnly SelectedDate => DateOnly.FromDateTime(_expenseDate);
+
+    bool IsToday => SelectedDate == TodayUtc;
+    bool IsYesterday => SelectedDate == TodayUtc.AddDays(-1);
+    bool IsDayBefore => SelectedDate == TodayUtc.AddDays(-2);
+    bool IsBackdated => SelectedDate < TodayUtc;
+
+    void SetToday() => _expenseDate = DateTime.UtcNow;
+    void SetYesterday() => _expenseDate = DateTime.UtcNow.Date.AddDays(-1).AddHours(12);
+    void SetDayBefore() => _expenseDate = DateTime.UtcNow.Date.AddDays(-2).AddHours(12);
+
+    void OnDateChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var parsed))
+            _expenseDate = DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
+    }
+
+    // Ensure the saved date always has UTC kind (datetime-local binding strips it)
+    DateTime ToUtc(DateTime dt) =>
+        dt.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(dt, DateTimeKind.Utc) : dt.ToUniversalTime();
+
     string GetTitle()
     {
         if (EditExpense is not null)
@@ -142,10 +182,7 @@
             _amount = 0;
     }
 
-    void OnAmountFocus()
-    {
-        // Поле автоматически пустое когда _amount = 0
-    }
+    void OnAmountFocus() { }
 
     protected override void OnParametersSet()
     {
@@ -154,7 +191,7 @@
             _amount = EditExpense.Amount;
             _category = EditExpense.Category;
             _note = EditExpense.Note ?? "";
-            _expenseDate = EditExpense.ExpenseDate;
+            _expenseDate = ToUtc(EditExpense.ExpenseDate);
             _isIncome = EditExpense.IsIncome;
         }
         else
@@ -173,18 +210,21 @@
         if (_amount <= 0) { _error = "Введите сумму."; return; }
         if (string.IsNullOrWhiteSpace(_category)) { _error = "Выберите категорию."; return; }
 
+        var dateUtc = ToUtc(_expenseDate);
+        var note = _note.Trim() == "" ? null : _note.Trim();
+
         _saving = true;
         try
         {
             if (EditExpense is null)
             {
                 await ExpenseService.AddExpenseAsync(new AddExpenseCommand(
-                    BudgetPlanId, _amount, _category, _note.Trim() == "" ? null : _note.Trim(), _expenseDate, _isIncome));
+                    BudgetPlanId, _amount, _category, note, dateUtc, _isIncome));
             }
             else
             {
                 await ExpenseService.UpdateExpenseAsync(new UpdateExpenseCommand(
-                    EditExpense.Id, _amount, _category, _note.Trim() == "" ? null : _note.Trim(), _expenseDate, _isIncome));
+                    EditExpense.Id, _amount, _category, note, dateUtc, _isIncome));
             }
             await OnSaved.InvokeAsync();
         }
